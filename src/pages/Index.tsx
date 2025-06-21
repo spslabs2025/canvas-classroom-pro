@@ -1,97 +1,23 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
-import { Play, Video, Mic, PenTool, Share2, Crown, Check, AlertCircle } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
+import { Play, Video, Mic, PenTool, Share2, Crown, Check } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        navigate('/dashboard');
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        navigate('/dashboard');
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-      if (error) {
-        console.error('OAuth Error:', error);
-        toast({
-          title: "Authentication Unavailable",
-          description: "Google sign-in is not configured yet. Please use the test login instead.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error signing in:', error);
-      toast({
-        title: "Sign-in Error",
-        description: "There was a problem signing in. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTestLogin = async () => {
-    setLoading(true);
-    try {
-      // For testing purposes, simulate a login
-      const testUser = {
-        id: 'test-user-pro-123',
-        email: 'testpro@tutorbox.com',
-        name: 'Test Pro User'
-      };
-      
-      // Create a test session by directly navigating to dashboard
-      // In a real app, this would be handled by proper authentication
-      toast({
-        title: "Test Login Successful",
-        description: "Logged in as Test Pro User",
-      });
-      
+    // If user is already logged in, redirect to dashboard
+    if (user) {
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Test login error:', error);
-      toast({
-        title: "Test Login Error",
-        description: "Could not log in with test account",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
+  }, [user, navigate]);
+
+  const handleStartTrial = () => {
+    navigate('/auth');
   };
 
   const features = [
@@ -140,23 +66,13 @@ const Index = () => {
               TutorBox
             </span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-2">
             <Button 
-              onClick={handleTestLogin} 
-              disabled={loading}
-              variant="outline"
-              size="sm"
-              className="text-xs sm:text-sm"
-            >
-              Test Login
-            </Button>
-            <Button 
-              onClick={handleGoogleSignIn} 
-              disabled={loading}
+              onClick={handleStartTrial}
               size="sm" 
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-xs sm:text-sm"
             >
-              {loading ? "Loading..." : "Start Free Trial"}
+              Start Free Trial
             </Button>
           </div>
         </div>
@@ -174,23 +90,12 @@ const Index = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 sm:mb-12 px-4">
             <Button 
-              onClick={handleGoogleSignIn}
-              disabled={loading}
+              onClick={handleStartTrial}
               size="lg" 
               className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 h-auto"
             >
               <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              {loading ? "Loading..." : "Start Free 14-Day Trial"}
-            </Button>
-            <Button 
-              onClick={handleTestLogin}
-              disabled={loading}
-              variant="outline"
-              size="lg" 
-              className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 h-auto"
-            >
-              <AlertCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              Try Demo (Test User)
+              Start Free 14-Day Trial
             </Button>
           </div>
           <p className="text-sm text-gray-500">No credit card required</p>
@@ -247,11 +152,10 @@ const Index = () => {
                 ))}
               </div>
               <Button 
-                onClick={handleTestLogin} 
-                disabled={loading}
+                onClick={handleStartTrial} 
                 className="w-full mt-6"
               >
-                {loading ? "Loading..." : "Start Free Trial"}
+                Start Free Trial
               </Button>
             </CardContent>
           </Card>
@@ -298,14 +202,13 @@ const Index = () => {
               Join thousands of educators creating professional content with TutorBox
             </p>
             <Button 
-              onClick={handleTestLogin}
-              disabled={loading}
+              onClick={handleStartTrial}
               size="lg" 
               variant="secondary"
               className="w-full sm:w-auto bg-white text-purple-600 hover:bg-gray-100 text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 h-auto"
             >
               <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-              {loading ? "Loading..." : "Start Your Free Trial Now"}
+              Start Your Free Trial Now
             </Button>
           </CardContent>
         </Card>

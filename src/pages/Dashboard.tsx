@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,24 +39,8 @@ const Dashboard = () => {
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Auto-login test user if no user is logged in
-    if (!user) {
-      const testUser = {
-        id: 'test-user-pro-123',
-        email: 'testpro@tutorbox.com',
-        name: 'Test Pro User',
-        is_pro: true
-      };
-      
-      // Set the test user in localStorage for persistence
-      localStorage.setItem('tutorbox_user', JSON.stringify(testUser));
-      window.location.reload(); // Reload to trigger auth context
-    }
-  }, [user]);
 
   const handleCreateLesson = () => {
     if (!newLessonTitle.trim()) {
@@ -114,7 +97,8 @@ const Dashboard = () => {
     });
   };
 
-  if (!user) {
+  // Show loading state while authentication is being determined
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
@@ -123,6 +107,12 @@ const Dashboard = () => {
         </div>
       </div>
     );
+  }
+
+  // If no user after loading, redirect to auth
+  if (!user) {
+    navigate('/auth');
+    return null;
   }
 
   return (
