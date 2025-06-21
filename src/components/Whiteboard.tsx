@@ -3,7 +3,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Pen, Eraser, Type, Undo, Redo, Upload, Palette, Minus, Plus } from 'lucide-react';
-import { fabric } from 'fabric';
+import { Canvas as FabricCanvas, FabricText, FabricImage } from 'fabric';
 
 interface WhiteboardProps {
   canvasData?: any;
@@ -12,14 +12,14 @@ interface WhiteboardProps {
 
 const Whiteboard = ({ canvasData, onChange }: WhiteboardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const [selectedTool, setSelectedTool] = useState<'pen' | 'eraser' | 'text'>('pen');
   const [brushColor, setBrushColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(5);
 
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
-      const canvas = new fabric.Canvas(canvasRef.current, {
+      const canvas = new FabricCanvas(canvasRef.current, {
         width: 800,
         height: 600,
         backgroundColor: 'white'
@@ -29,8 +29,10 @@ const Whiteboard = ({ canvasData, onChange }: WhiteboardProps) => {
 
       // Set up drawing mode
       canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush.width = brushSize;
-      canvas.freeDrawingBrush.color = brushColor;
+      if (canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush.width = brushSize;
+        canvas.freeDrawingBrush.color = brushColor;
+      }
 
       // Listen for canvas changes
       canvas.on('path:created', () => {
@@ -43,7 +45,7 @@ const Whiteboard = ({ canvasData, onChange }: WhiteboardProps) => {
 
       // Load existing canvas data
       if (canvasData && Object.keys(canvasData).length > 0) {
-        canvas.loadFromJSON(canvasData, () => {
+        canvas.loadFromJSON(canvasData).then(() => {
           canvas.renderAll();
         });
       }
@@ -63,12 +65,16 @@ const Whiteboard = ({ canvasData, onChange }: WhiteboardProps) => {
       
       if (selectedTool === 'pen') {
         canvas.isDrawingMode = true;
-        canvas.freeDrawingBrush.width = brushSize;
-        canvas.freeDrawingBrush.color = brushColor;
+        if (canvas.freeDrawingBrush) {
+          canvas.freeDrawingBrush.width = brushSize;
+          canvas.freeDrawingBrush.color = brushColor;
+        }
       } else if (selectedTool === 'eraser') {
         canvas.isDrawingMode = true;
-        canvas.freeDrawingBrush.width = brushSize * 2;
-        canvas.freeDrawingBrush.color = 'white';
+        if (canvas.freeDrawingBrush) {
+          canvas.freeDrawingBrush.width = brushSize * 2;
+          canvas.freeDrawingBrush.color = 'white';
+        }
       } else {
         canvas.isDrawingMode = false;
       }
@@ -84,7 +90,7 @@ const Whiteboard = ({ canvasData, onChange }: WhiteboardProps) => {
 
   const addText = () => {
     if (fabricCanvasRef.current) {
-      const text = new fabric.IText('Click to edit', {
+      const text = new FabricText('Click to edit', {
         left: 100,
         top: 100,
         fontFamily: 'Arial',
@@ -122,7 +128,7 @@ const Whiteboard = ({ canvasData, onChange }: WhiteboardProps) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const imgUrl = e.target?.result as string;
-        fabric.Image.fromURL(imgUrl, (img) => {
+        FabricImage.fromURL(imgUrl).then((img) => {
           if (fabricCanvasRef.current) {
             img.scaleToWidth(400);
             fabricCanvasRef.current.add(img);
