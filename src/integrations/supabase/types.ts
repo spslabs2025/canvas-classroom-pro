@@ -9,7 +9,191 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      branding: {
+        Row: {
+          color: string | null
+          font: string | null
+          logo_url: string | null
+          name: string | null
+          opacity: number | null
+          position: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          font?: string | null
+          logo_url?: string | null
+          name?: string | null
+          opacity?: number | null
+          position?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          font?: string | null
+          logo_url?: string | null
+          name?: string | null
+          opacity?: number | null
+          position?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lessons: {
+        Row: {
+          created_at: string | null
+          export_status: string | null
+          id: string
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          export_status?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          export_status?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          expires_at: string | null
+          type: string | null
+          value: number | null
+        }
+        Insert: {
+          code: string
+          expires_at?: string | null
+          type?: string | null
+          value?: number | null
+        }
+        Update: {
+          code?: string
+          expires_at?: string | null
+          type?: string | null
+          value?: number | null
+        }
+        Relationships: []
+      }
+      slides: {
+        Row: {
+          canvas_data: Json | null
+          id: string
+          lesson_id: string | null
+          order_index: number
+        }
+        Insert: {
+          canvas_data?: Json | null
+          id?: string
+          lesson_id?: string | null
+          order_index: number
+        }
+        Update: {
+          canvas_data?: Json | null
+          id?: string
+          lesson_id?: string | null
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slides_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcripts: {
+        Row: {
+          created_at: string | null
+          id: string
+          lesson_id: string | null
+          srt_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          srt_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          srt_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_pro: boolean | null
+          name: string | null
+          promo_code: string | null
+          razorpay_id: string | null
+          trial_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_pro?: boolean | null
+          name?: string | null
+          promo_code?: string | null
+          razorpay_id?: string | null
+          trial_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_pro?: boolean | null
+          name?: string | null
+          promo_code?: string | null
+          razorpay_id?: string | null
+          trial_start?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
