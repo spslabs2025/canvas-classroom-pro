@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,8 +84,21 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      setLessons(data || []);
-      calculateStats(data || []);
+      // Map database fields to our Lesson interface
+      const mappedLessons: Lesson[] = (data || []).map(lesson => ({
+        id: lesson.id,
+        title: lesson.title,
+        description: lesson.description || '',
+        duration: lesson.duration || 0,
+        status: lesson.status || 'draft',
+        thumbnail_url: lesson.thumbnail_url || '',
+        video_url: lesson.video_url || '',
+        created_at: lesson.created_at,
+        updated_at: lesson.updated_at
+      }));
+
+      setLessons(mappedLessons);
+      calculateStats(mappedLessons);
     } catch (error) {
       console.error('Error fetching lessons:', error);
       toast({

@@ -103,7 +103,18 @@ const Editor = () => {
         .single();
 
       if (error) throw error;
-      setLesson(data);
+      
+      // Map database fields to our Lesson interface
+      const lessonData: Lesson = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        user_id: data.user_id,
+        status: data.status || 'draft',
+        duration: data.duration || 0
+      };
+      
+      setLesson(lessonData);
     } catch (error) {
       console.error('Error fetching lesson:', error);
       toast({
@@ -129,7 +140,15 @@ const Editor = () => {
         // Create initial slide if none exist
         await addNewSlide();
       } else {
-        setSlides(data);
+        // Map database fields to our Slide interface
+        const mappedSlides: Slide[] = data.map(slide => ({
+          id: slide.id,
+          lesson_id: slide.lesson_id || '',
+          order_index: slide.order_index,
+          canvas_data: slide.canvas_data,
+          background_template: slide.background_template || 'white'
+        }));
+        setSlides(mappedSlides);
       }
     } catch (error) {
       console.error('Error fetching slides:', error);
@@ -192,7 +211,6 @@ const Editor = () => {
       // Get screen and camera permissions
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
         video: {
-          mediaSource: 'screen',
           width: { ideal: 1920 },
           height: { ideal: 1080 },
           frameRate: { ideal: 30 }
@@ -369,7 +387,15 @@ const Editor = () => {
 
       if (error) throw error;
       
-      setSlides([...slides, data]);
+      const mappedSlide: Slide = {
+        id: data.id,
+        lesson_id: data.lesson_id || '',
+        order_index: data.order_index,
+        canvas_data: data.canvas_data,
+        background_template: data.background_template || 'white'
+      };
+      
+      setSlides([...slides, mappedSlide]);
       setCurrentSlideIndex(slides.length);
       
       toast({
@@ -569,7 +595,7 @@ const Editor = () => {
                 <Whiteboard
                   canvasData={currentSlide.canvas_data}
                   onChange={handleCanvasChange}
-                  backgroundTemplate={currentSlide.background_template}
+                  background={currentSlide.background_template}
                 />
               )}
             </CardContent>

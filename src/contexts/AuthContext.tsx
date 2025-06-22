@@ -12,6 +12,8 @@ interface UserProfile {
   trial_start: string;
   trial_end: string;
   subscription_status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
@@ -51,7 +53,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) throw error;
-      setProfile(data);
+      
+      // Map database fields to our interface
+      const profileData: UserProfile = {
+        id: data.id,
+        email: data.email,
+        name: data.name || '',
+        is_pro: data.is_pro || false,
+        trial_start: data.trial_start || '',
+        trial_end: data.trial_end || '',
+        subscription_status: data.subscription_status || 'trial',
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || ''
+      };
+      
+      setProfile(profileData);
     } catch (error) {
       console.error('Error fetching profile:', error);
     }

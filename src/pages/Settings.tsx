@@ -18,6 +18,8 @@ interface UserProfile {
   trial_start: string;
   trial_end: string;
   subscription_status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Branding {
@@ -59,7 +61,21 @@ const Settings = () => {
         .single();
 
       if (error) throw error;
-      setUserProfile(userData);
+      
+      // Map database fields to our UserProfile interface
+      const profileData: UserProfile = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name || '',
+        is_pro: userData.is_pro || false,
+        trial_start: userData.trial_start || '',
+        trial_end: userData.trial_end || '',
+        subscription_status: userData.subscription_status || 'trial',
+        created_at: userData.created_at || '',
+        updated_at: userData.updated_at || ''
+      };
+      
+      setUserProfile(profileData);
     } catch (error) {
       console.error('Error fetching user:', error);
       toast({
@@ -86,14 +102,28 @@ const Settings = () => {
         throw error;
       }
 
-      setBranding(data || {
-        user_id: user.id,
-        logo_url: '',
-        watermark_text: profile?.name || user.email || 'TutorBox',
-        watermark_position: 'bottom-right',
-        watermark_opacity: 0.8,
-        brand_color: '#3B82F6'
-      });
+      // Map database fields to our Branding interface
+      if (data) {
+        const brandingData: Branding = {
+          id: data.id,
+          user_id: data.user_id,
+          logo_url: data.logo_url || '',
+          watermark_text: data.watermark_text || profile?.name || user.email || 'TutorBox',
+          watermark_position: data.watermark_position || 'bottom-right',
+          watermark_opacity: data.watermark_opacity || 0.8,
+          brand_color: data.brand_color || '#3B82F6'
+        };
+        setBranding(brandingData);
+      } else {
+        setBranding({
+          user_id: user.id,
+          logo_url: '',
+          watermark_text: profile?.name || user.email || 'TutorBox',
+          watermark_position: 'bottom-right',
+          watermark_opacity: 0.8,
+          brand_color: '#3B82F6'
+        });
+      }
     } catch (error) {
       console.error('Error fetching branding:', error);
     }
