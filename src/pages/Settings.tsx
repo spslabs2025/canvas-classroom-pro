@@ -62,17 +62,17 @@ const Settings = () => {
 
       if (error) throw error;
       
-      // Map database fields to our UserProfile interface with proper defaults
+      // Map database fields to our UserProfile interface with proper defaults for missing columns
       const profileData: UserProfile = {
         id: userData.id,
         email: userData.email,
         name: userData.name || '',
         is_pro: userData.is_pro || false,
         trial_start: userData.trial_start || '',
-        trial_end: userData.trial_end || '', // This should exist from our migration
-        subscription_status: userData.subscription_status || 'trial',
+        trial_end: userData.trial_start ? new Date(new Date(userData.trial_start).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString() : '', // Calculate 14 days from trial_start
+        subscription_status: userData.is_pro ? 'active' : 'trial', // Derive from is_pro
         created_at: userData.created_at || '',
-        updated_at: userData.updated_at || ''
+        updated_at: userData.created_at || '' // Use created_at as fallback since updated_at doesn't exist
       };
       
       setUserProfile(profileData);
@@ -105,7 +105,6 @@ const Settings = () => {
       // Map database fields to our Branding interface
       if (data) {
         const brandingData: Branding = {
-          id: data.id,
           user_id: data.user_id,
           logo_url: data.logo_url || '',
           watermark_text: data.name || profile?.name || user.email || 'TutorBox', // Map 'name' to 'watermark_text'
@@ -137,8 +136,7 @@ const Settings = () => {
       const { error } = await supabase
         .from('users')
         .update({
-          name: userProfile.name,
-          updated_at: new Date().toISOString()
+          name: userProfile.name
         })
         .eq('id', user.id);
 

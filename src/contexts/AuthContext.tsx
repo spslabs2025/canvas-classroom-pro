@@ -54,17 +54,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      // Map database fields to our interface with proper defaults
+      // Map database fields to our interface with proper defaults for missing columns
       const profileData: UserProfile = {
         id: data.id,
         email: data.email,
         name: data.name || '',
         is_pro: data.is_pro || false,
         trial_start: data.trial_start || '',
-        trial_end: data.trial_end || '', // This should exist from our migration
-        subscription_status: data.subscription_status || 'trial',
+        trial_end: data.trial_start ? new Date(new Date(data.trial_start).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString() : '', // Calculate 14 days from trial_start
+        subscription_status: data.is_pro ? 'active' : 'trial', // Derive from is_pro
         created_at: data.created_at || '',
-        updated_at: data.updated_at || ''
+        updated_at: data.created_at || '' // Use created_at as fallback since updated_at doesn't exist
       };
       
       setProfile(profileData);
@@ -182,37 +182,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error signing out:', error);
     }
   };
-
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-        
-        setIsLoading(false);
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   return (
     <AuthContext.Provider value={{ 

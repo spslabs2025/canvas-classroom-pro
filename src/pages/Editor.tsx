@@ -104,14 +104,14 @@ const Editor = () => {
 
       if (error) throw error;
       
-      // Map database fields to our Lesson interface
+      // Map database fields to our Lesson interface with defaults for missing columns
       const lessonData: Lesson = {
         id: data.id,
         title: data.title,
-        description: data.description || '',
+        description: '', // Default since description doesn't exist in DB
         user_id: data.user_id,
         status: data.export_status || 'draft', // Map export_status to status
-        duration: data.duration || 0
+        duration: 0 // Default since duration doesn't exist in DB
       };
       
       setLesson(lessonData);
@@ -140,13 +140,13 @@ const Editor = () => {
         // Create initial slide if none exist
         await addNewSlide();
       } else {
-        // Map database fields to our Slide interface with proper defaults
+        // Map database fields to our Slide interface with proper defaults for missing columns
         const mappedSlides: Slide[] = data.map(slide => ({
           id: slide.id,
           lesson_id: slide.lesson_id || '',
           order_index: slide.order_index,
           canvas_data: slide.canvas_data,
-          background_template: slide.background_template || 'white'
+          background_template: 'white' // Default since background_template doesn't exist in DB
         }));
         setSlides(mappedSlides);
       }
@@ -163,8 +163,6 @@ const Editor = () => {
         .from('lessons')
         .update({ 
           title: lesson.title,
-          description: lesson.description,
-          duration: recordingTime,
           updated_at: new Date().toISOString()
         })
         .eq('id', lesson.id);
@@ -274,8 +272,7 @@ const Editor = () => {
         await supabase
           .from('lessons')
           .update({ 
-            export_status: 'completed', // Use export_status instead of status
-            duration: recordingTime 
+            export_status: 'completed'
           })
           .eq('id', lesson?.id);
       };
@@ -292,7 +289,7 @@ const Editor = () => {
       // Update lesson export_status to recording
       await supabase
         .from('lessons')
-        .update({ export_status: 'recording' }) // Use export_status
+        .update({ export_status: 'recording' })
         .eq('id', lesson?.id);
       
       toast({
@@ -375,8 +372,7 @@ const Editor = () => {
       const newSlide = {
         lesson_id: lessonId,
         order_index: slides.length,
-        canvas_data: {},
-        background_template: 'white'
+        canvas_data: {}
       };
 
       const { data, error } = await supabase
@@ -392,7 +388,7 @@ const Editor = () => {
         lesson_id: data.lesson_id || '',
         order_index: data.order_index,
         canvas_data: data.canvas_data,
-        background_template: data.background_template || 'white'
+        background_template: 'white' // Default since background_template doesn't exist in DB
       };
       
       setSlides([...slides, mappedSlide]);
