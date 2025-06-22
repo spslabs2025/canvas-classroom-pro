@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,13 +83,13 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Map database fields to our Lesson interface
+      // Map database fields to our Lesson interface with proper defaults
       const mappedLessons: Lesson[] = (data || []).map(lesson => ({
         id: lesson.id,
         title: lesson.title,
         description: lesson.description || '',
         duration: lesson.duration || 0,
-        status: lesson.status || 'draft',
+        status: lesson.export_status || 'draft', // Map export_status to status
         thumbnail_url: lesson.thumbnail_url || '',
         video_url: lesson.video_url || '',
         created_at: lesson.created_at,
@@ -116,7 +115,7 @@ const Dashboard = () => {
       totalLessons: lessonsData.length,
       totalDuration: lessonsData.reduce((acc, lesson) => acc + lesson.duration, 0),
       completedLessons: lessonsData.filter(l => l.status === 'completed').length,
-      draftLessons: lessonsData.filter(l => l.status === 'draft').length
+      draftLessons: lessonsData.filter(l => l.status === 'draft' || l.status === 'pending').length
     };
     setStats(stats);
   };
@@ -138,7 +137,7 @@ const Dashboard = () => {
           user_id: user?.id,
           title: newLessonTitle,
           description: newLessonDescription,
-          status: 'draft'
+          export_status: 'pending' // Use export_status instead of status
         })
         .select()
         .single();
@@ -222,6 +221,11 @@ const Dashboard = () => {
     const now = new Date();
     const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, daysLeft);
+  };
+
+  const handleSignOut = async () => {
+    await logout();
+    navigate('/');
   };
 
   if (loading) {
@@ -374,7 +378,7 @@ const Dashboard = () => {
                   >
                     <option value="all">All Status</option>
                     <option value="draft">Draft</option>
-                    <option value="recording">Recording</option>
+                    <option value="pending">Pending</option>
                     <option value="completed">Completed</option>
                   </select>
                 </div>

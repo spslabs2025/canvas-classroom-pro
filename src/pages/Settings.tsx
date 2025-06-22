@@ -62,14 +62,14 @@ const Settings = () => {
 
       if (error) throw error;
       
-      // Map database fields to our UserProfile interface
+      // Map database fields to our UserProfile interface with proper defaults
       const profileData: UserProfile = {
         id: userData.id,
         email: userData.email,
         name: userData.name || '',
         is_pro: userData.is_pro || false,
         trial_start: userData.trial_start || '',
-        trial_end: userData.trial_end || '',
+        trial_end: userData.trial_end || '', // This should exist from our migration
         subscription_status: userData.subscription_status || 'trial',
         created_at: userData.created_at || '',
         updated_at: userData.updated_at || ''
@@ -108,10 +108,10 @@ const Settings = () => {
           id: data.id,
           user_id: data.user_id,
           logo_url: data.logo_url || '',
-          watermark_text: data.watermark_text || profile?.name || user.email || 'TutorBox',
-          watermark_position: data.watermark_position || 'bottom-right',
-          watermark_opacity: data.watermark_opacity || 0.8,
-          brand_color: data.brand_color || '#3B82F6'
+          watermark_text: data.name || profile?.name || user.email || 'TutorBox', // Map 'name' to 'watermark_text'
+          watermark_position: data.position || 'bottom-right', // Map 'position' to 'watermark_position'
+          watermark_opacity: data.opacity || 0.8, // Map 'opacity' to 'watermark_opacity'
+          brand_color: data.color || '#3B82F6' // Map 'color' to 'brand_color'
         };
         setBranding(brandingData);
       } else {
@@ -167,12 +167,16 @@ const Settings = () => {
 
     setSaving(true);
     try {
+      // Map our interface back to database columns
       const { error } = await supabase
         .from('branding')
         .upsert({
-          ...branding,
           user_id: user.id,
-          updated_at: new Date().toISOString()
+          logo_url: branding.logo_url,
+          name: branding.watermark_text, // Map 'watermark_text' to 'name'
+          position: branding.watermark_position, // Map 'watermark_position' to 'position'
+          opacity: branding.watermark_opacity, // Map 'watermark_opacity' to 'opacity'
+          color: branding.brand_color // Map 'brand_color' to 'color'
         });
 
       if (error) throw error;
@@ -466,11 +470,11 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                 <div>
                   <p className="font-medium text-gray-900">Account Created</p>
-                  <p>{userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : 'N/A'}</p>
+                  <p>{userProfile?.trial_start ? new Date(userProfile.trial_start).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">Last Updated</p>
-                  <p>{userProfile?.updated_at ? new Date(userProfile.updated_at).toLocaleDateString() : 'N/A'}</p>
+                  <p>{userProfile?.trial_start ? new Date(userProfile.trial_start).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </div>
               

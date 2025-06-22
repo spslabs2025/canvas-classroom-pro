@@ -54,14 +54,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
-      // Map database fields to our interface
+      // Map database fields to our interface with proper defaults
       const profileData: UserProfile = {
         id: data.id,
         email: data.email,
         name: data.name || '',
         is_pro: data.is_pro || false,
         trial_start: data.trial_start || '',
-        trial_end: data.trial_end || '',
+        trial_end: data.trial_end || '', // This should exist from our migration
         subscription_status: data.subscription_status || 'trial',
         created_at: data.created_at || '',
         updated_at: data.updated_at || ''
@@ -161,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({
         title: "Sign up failed",
         description: error.message || "Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return { error };
     }
@@ -182,6 +182,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error signing out:', error);
     }
   };
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session);
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
+        
+        setIsLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <AuthContext.Provider value={{ 

@@ -110,7 +110,7 @@ const Editor = () => {
         title: data.title,
         description: data.description || '',
         user_id: data.user_id,
-        status: data.status || 'draft',
+        status: data.export_status || 'draft', // Map export_status to status
         duration: data.duration || 0
       };
       
@@ -140,7 +140,7 @@ const Editor = () => {
         // Create initial slide if none exist
         await addNewSlide();
       } else {
-        // Map database fields to our Slide interface
+        // Map database fields to our Slide interface with proper defaults
         const mappedSlides: Slide[] = data.map(slide => ({
           id: slide.id,
           lesson_id: slide.lesson_id || '',
@@ -270,11 +270,11 @@ const Editor = () => {
         // Stop all tracks
         combinedStream.getTracks().forEach(track => track.stop());
         
-        // Update lesson status
+        // Update lesson export_status
         await supabase
           .from('lessons')
           .update({ 
-            status: 'completed',
+            export_status: 'completed', // Use export_status instead of status
             duration: recordingTime 
           })
           .eq('id', lesson?.id);
@@ -289,10 +289,10 @@ const Editor = () => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
       
-      // Update lesson status to recording
+      // Update lesson export_status to recording
       await supabase
         .from('lessons')
-        .update({ status: 'recording' })
+        .update({ export_status: 'recording' }) // Use export_status
         .eq('id', lesson?.id);
       
       toast({
@@ -595,7 +595,6 @@ const Editor = () => {
                 <Whiteboard
                   canvasData={currentSlide.canvas_data}
                   onChange={handleCanvasChange}
-                  background={currentSlide.background_template}
                 />
               )}
             </CardContent>
