@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -12,30 +11,27 @@ import {
   Square, 
   Download, 
   Settings, 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff,
   Save,
   Pause,
-  RotateCcw,
-  Maximize,
   Monitor,
   Smartphone,
-  Tablet
+  Tablet,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import Whiteboard from '@/components/Whiteboard';
+import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
 import SlideManager from '@/components/SlideManager';
-import WebcamPreview from '@/components/WebcamPreview';
+import MediaControls from '@/components/MediaControls';
+import ResizableWebcamPreview from '@/components/ResizableWebcamPreview';
 
 interface Lesson {
   id: string;
   title: string;
-  description: string;
   user_id: string;
-  status: string;
-  duration: number;
+  export_status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Slide {
@@ -43,7 +39,6 @@ interface Slide {
   lesson_id: string;
   order_index: number;
   canvas_data: any;
-  background_template: string;
 }
 
 const Editor = () => {
@@ -63,6 +58,7 @@ const Editor = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [autoSave, setAutoSave] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -104,14 +100,13 @@ const Editor = () => {
 
       if (error) throw error;
       
-      // Map database fields to our Lesson interface with defaults for missing columns
       const lessonData: Lesson = {
         id: data.id,
         title: data.title,
-        description: '', // Default since description doesn't exist in DB
         user_id: data.user_id,
-        status: data.export_status || 'draft', // Map export_status to status
-        duration: 0 // Default since duration doesn't exist in DB
+        export_status: data.export_status || 'draft',
+        created_at: data.created_at || '',
+        updated_at: data.updated_at || ''
       };
       
       setLesson(lessonData);
@@ -137,21 +132,23 @@ const Editor = () => {
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        // Create initial slide if none exist
         await addNewSlide();
       } else {
-        // Map database fields to our Slide interface with proper defaults for missing columns
         const mappedSlides: Slide[] = data.map(slide => ({
           id: slide.id,
           lesson_id: slide.lesson_id || '',
           order_index: slide.order_index,
-          canvas_data: slide.canvas_data,
-          background_template: 'white' // Default since background_template doesn't exist in DB
+          canvas_data: slide.canvas_data
         }));
         setSlides(mappedSlides);
       }
     } catch (error) {
       console.error('Error fetching slides:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load slides",
+        variant: "destructive"
+      });
     }
   };
 
@@ -192,7 +189,6 @@ const Editor = () => {
       };
       setSlides(updatedSlides);
 
-      // Auto-save to database (debounced)
       try {
         await supabase
           .from('slides')
@@ -206,7 +202,6 @@ const Editor = () => {
 
   const startRecording = async () => {
     try {
-      // Get screen and camera permissions
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
         video: {
           width: { ideal: 1920 },
@@ -228,7 +223,6 @@ const Editor = () => {
         });
       }
       
-      // Combine streams
       const combinedStream = new MediaStream();
       
       screenStream.getVideoTracks().forEach(track => {
@@ -265,10 +259,8 @@ const Editor = () => {
         const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
         setRecordedBlob(blob);
         
-        // Stop all tracks
         combinedStream.getTracks().forEach(track => track.stop());
         
-        // Update lesson export_status
         await supabase
           .from('lessons')
           .update({ 
@@ -277,16 +269,14 @@ const Editor = () => {
           .eq('id', lesson?.id);
       };
 
-      mediaRecorder.start(1000); // Record in 1-second chunks
+      mediaRecorder.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
       
-      // Start recording timer
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
       
-      // Update lesson export_status to recording
       await supabase
         .from('lessons')
         .update({ export_status: 'recording' })
@@ -387,8 +377,7 @@ const Editor = () => {
         id: data.id,
         lesson_id: data.lesson_id || '',
         order_index: data.order_index,
-        canvas_data: data.canvas_data,
-        background_template: 'white' // Default since background_template doesn't exist in DB
+        canvas_data: data.canvas_data
       };
       
       setSlides([...slides, mappedSlide]);
@@ -500,24 +489,6 @@ const Editor = () => {
             </div>
             
             {/* Recording Controls */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-              className={`${isAudioEnabled ? 'text-white' : 'text-red-400'} hover:bg-gray-700`}
-            >
-              {isAudioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsWebcamEnabled(!isWebcamEnabled)}
-              className={`${isWebcamEnabled ? 'text-white' : 'text-red-400'} hover:bg-gray-700`}
-            >
-              {isWebcamEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-            </Button>
-            
             {!isRecording ? (
               <Button
                 onClick={startRecording}
@@ -569,35 +540,66 @@ const Editor = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)]">
-        {/* Webcam Panel */}
-        <div className="w-full lg:w-2/5 bg-gray-800 p-4 order-2 lg:order-1">
-          <Card className="h-full bg-gray-900 border-gray-700">
-            <CardContent className="p-4 h-full">
-              <WebcamPreview 
-                isEnabled={isWebcamEnabled} 
-                isRecording={isRecording}
-              />
-            </CardContent>
-          </Card>
+      <div className="flex h-[calc(100vh-64px)]">
+        {/* Collapsible Sidebar */}
+        <div className={`${sidebarCollapsed ? 'w-12' : 'w-80'} bg-gray-800 border-r border-gray-700 transition-all duration-300 flex flex-col`}>
+          <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+            {!sidebarCollapsed && <h3 className="text-white font-medium">Controls</h3>}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="text-white hover:bg-gray-700"
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
+          </div>
+          
+          {!sidebarCollapsed && (
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+              <div>
+                <h4 className="text-white text-sm font-medium mb-2">Media Controls</h4>
+                <MediaControls
+                  isAudioEnabled={isAudioEnabled}
+                  isVideoEnabled={isWebcamEnabled}
+                  onAudioToggle={() => setIsAudioEnabled(!isAudioEnabled)}
+                  onVideoToggle={() => setIsWebcamEnabled(!isWebcamEnabled)}
+                />
+              </div>
+              
+              <div className="border-t border-gray-700 pt-4">
+                <h4 className="text-white text-sm font-medium mb-2">Settings</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 text-white text-sm">
+                    <input
+                      type="checkbox"
+                      checked={autoSave}
+                      onChange={(e) => setAutoSave(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span>Auto-save</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Whiteboard Panel */}
-        <div className="w-full lg:w-3/5 bg-gray-900 p-4 flex flex-col order-1 lg:order-2">
+        {/* Whiteboard Area */}
+        <div className="flex-1 flex flex-col">
           {/* Whiteboard */}
-          <Card className="flex-1 bg-white border-gray-700 mb-4">
-            <CardContent className="p-0 h-full">
-              {currentSlide && (
-                <Whiteboard
-                  canvasData={currentSlide.canvas_data}
-                  onChange={handleCanvasChange}
-                />
-              )}
-            </CardContent>
-          </Card>
+          <div className="flex-1">
+            {currentSlide && (
+              <InfiniteWhiteboard
+                canvasData={currentSlide.canvas_data}
+                onChange={handleCanvasChange}
+                isCollaborative={false}
+              />
+            )}
+          </div>
 
           {/* Slide Manager */}
-          <div className="h-32">
+          <div className="h-32 bg-gray-100 border-t">
             <SlideManager
               slides={slides}
               currentSlideIndex={currentSlideIndex}
@@ -607,6 +609,12 @@ const Editor = () => {
           </div>
         </div>
       </div>
+
+      {/* Resizable Webcam Preview */}
+      <ResizableWebcamPreview 
+        isEnabled={isWebcamEnabled} 
+        isRecording={isRecording}
+      />
     </div>
   );
 };
