@@ -5,9 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate, Link } from 'react-router-dom';
-import { Play, Eye, EyeOff } from 'lucide-react';
+import { Play, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,92 +16,60 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const { toast } = useToast();
+  const { login, signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (email && password) {
-        // Simulate authentication success
-        const userData = {
-          id: isLogin ? 'user-' + Date.now() : 'new-user-' + Date.now(),
-          email,
-          name: isLogin ? email.split('@')[0] : name,
-          is_pro: false
-        };
+      let result;
+      if (isLogin) {
+        result = await login(email, password);
+      } else {
+        result = await signUp(email, password, name);
+      }
 
-        login(userData);
-        
-        toast({
-          title: isLogin ? "Signed In Successfully" : "Account Created",
-          description: `Welcome ${userData.name}!`,
-        });
-
+      if (!result.error) {
         navigate('/dashboard');
       }
     } catch (error) {
-      toast({
-        title: "Authentication Error",
-        description: "Please check your credentials and try again.",
-        variant: "destructive",
-      });
+      console.error('Authentication error:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTestLogin = () => {
-    setLoading(true);
-    const testUser = {
-      id: 'test-user-pro-123',
-      email: 'testpro@tutorbox.com',
-      name: 'Test Pro User',
-      is_pro: true
-    };
-    
-    login(testUser);
-    
-    toast({
-      title: "Test Login Successful",
-      description: "Logged in as Test Pro User",
-    });
-
-    navigate('/dashboard');
-    setLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       {/* Header */}
       <div className="absolute top-4 left-4">
-        <Link to="/" className="flex items-center space-x-2 text-blue-600 hover:text-blue-700">
-          <div className="h-6 w-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Play className="h-3 w-3 text-white" />
+        <Link to="/" className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors">
+          <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <Play className="h-4 w-4 text-white" />
           </div>
           <span className="text-xl font-bold">TutorBox</span>
         </Link>
       </div>
 
-      <Card className="w-full max-w-md bg-white/80 backdrop-blur-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+      <Card className="w-full max-w-md bg-white/90 backdrop-blur-sm shadow-xl border-0">
+        <CardHeader className="text-center space-y-2">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            {isLogin ? 'Welcome Back' : 'Start Creating'}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base">
             {isLogin 
-              ? 'Sign in to access your teaching studio' 
-              : 'Start your free trial today'
+              ? 'Sign in to your TutorBox studio' 
+              : 'Join thousands of educators creating amazing content'
             }
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        
+        <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name" className="text-sm font-medium">Full Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -110,12 +77,13 @@ const Auth = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required={!isLogin}
+                  className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
               <Input
                 id="email"
                 type="email"
@@ -123,11 +91,12 @@ const Auth = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -136,12 +105,13 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="h-11 pr-10 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-gray-100"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -151,39 +121,38 @@ const Auth = () => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium text-base transition-all duration-200 shadow-lg hover:shadow-xl"
               disabled={loading}
             >
-              {loading ? "Loading..." : (isLogin ? "Sign In" : "Create Account")}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isLogin ? "Signing In..." : "Creating Account..."}
+                </>
+              ) : (
+                isLogin ? "Sign In" : "Start Free Trial"
+              )}
             </Button>
           </form>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+          {!isLogin && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 text-green-800">
+                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium">14-day free trial • No credit card required</span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or</span>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleTestLogin}
-            variant="outline"
-            className="w-full"
-            disabled={loading}
-          >
-            Try Demo (Test Pro User)
-          </Button>
+          )}
 
           <div className="text-center">
             <Button
               variant="link"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm"
+              className="text-sm text-gray-600 hover:text-blue-600"
+              disabled={loading}
             >
               {isLogin 
-                ? "Don't have an account? Sign up" 
+                ? "Don't have an account? Start your free trial" 
                 : "Already have an account? Sign in"
               }
             </Button>

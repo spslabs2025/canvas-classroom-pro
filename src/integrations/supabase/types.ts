@@ -103,6 +103,44 @@ export type Database = {
         }
         Relationships: []
       }
+      recordings: {
+        Row: {
+          created_at: string | null
+          duration: number | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          lesson_id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration?: number | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          lesson_id: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          lesson_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recordings_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slides: {
         Row: {
           canvas_data: Json | null
@@ -125,6 +163,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "slides_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subtitles: {
+        Row: {
+          created_at: string | null
+          id: string
+          language: string | null
+          lesson_id: string
+          srt_content: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          language?: string | null
+          lesson_id: string
+          srt_content?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          language?: string | null
+          lesson_id?: string
+          srt_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtitles_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
