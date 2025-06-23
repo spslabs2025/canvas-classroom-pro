@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -23,9 +24,10 @@ import {
   Layers,
   Grid3X3,
   MousePointer,
-  Menu
+  Menu,
+  Triangle
 } from 'lucide-react';
-import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Path, Point } from 'fabric';
+import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Polygon, Point } from 'fabric';
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -39,9 +41,10 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
-  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'line' | 'pan'>('pen');
+  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'triangle' | 'line' | 'pan'>('pen');
   const [brushColor, setBrushColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(3);
   const [zoom, setZoom] = useState(1);
@@ -60,7 +63,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     if (canvasRef.current && !fabricCanvasRef.current) {
       try {
         const canvas = new FabricCanvas(canvasRef.current, {
-          width: window.innerWidth - 80, // Account for smaller space since toolbar is now collapsible
+          width: window.innerWidth - 80,
           height: window.innerHeight - 150,
           backgroundColor: 'white',
           selection: selectedTool === 'select',
@@ -70,12 +73,9 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
         fabricCanvasRef.current = canvas;
 
-        // Set up drawing mode with proper brush settings
-        canvas.isDrawingMode = selectedTool === 'pen' || selectedTool === 'eraser';
-        if (canvas.freeDrawingBrush) {
-          canvas.freeDrawingBrush.width = brushSize;
-          canvas.freeDrawingBrush.color = selectedTool === 'eraser' ? canvas.backgroundColor as string : brushColor;
-        }
+        // Initialize drawing brush properly
+        canvas.freeDrawingBrush.width = brushSize;
+        canvas.freeDrawingBrush.color = brushColor;
 
         // Add event listeners for changes
         canvas.on('path:created', handleCanvasChange);
@@ -92,7 +92,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         let lastPosY = 0;
 
         canvas.on('mouse:down', function(opt) {
-          const evt = opt.e as MouseEvent | TouchEvent;
+          const evt = opt.e;
           let clientX = 0;
           let clientY = 0;
           
@@ -117,7 +117,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
         canvas.on('mouse:move', function(opt) {
           if (isDragging) {
-            const evt = opt.e as MouseEvent | TouchEvent;
+            const evt = opt.e;
             let clientX = 0;
             let clientY = 0;
             
@@ -143,7 +143,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         canvas.on('mouse:up', function() {
           canvas.setViewportTransform(canvas.viewportTransform);
           isDragging = false;
-          canvas.selection = true;
+          canvas.selection = selectedTool === 'select';
         });
 
         // Load existing canvas data if provided
@@ -195,17 +195,34 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Update tool settings
+  // Update tool settings when tool or settings change
   useEffect(() => {
     if (fabricCanvasRef.current) {
       const canvas = fabricCanvasRef.current;
       
+      // Reset canvas modes
       canvas.selection = selectedTool === 'select';
       canvas.isDrawingMode = selectedTool === 'pen' || selectedTool === 'eraser';
       
+      // Configure drawing brush
       if (canvas.freeDrawingBrush) {
         canvas.freeDrawingBrush.width = brushSize;
-        canvas.freeDrawingBrush.color = selectedTool === 'eraser' ? canvas.backgroundColor as string : brushColor;
+        if (selectedTool === 'eraser') {
+          canvas.freeDrawingBrush.color = canvas.backgroundColor as string || 'white';
+        } else {
+          canvas.freeDrawingBrush.color = brushColor;
+        }
+      }
+      
+      // Set cursor based on tool
+      if (selectedTool === 'pen') {
+        canvas.defaultCursor = 'crosshair';
+      } else if (selectedTool === 'eraser') {
+        canvas.defaultCursor = 'crosshair';
+      } else if (selectedTool === 'pan') {
+        canvas.defaultCursor = 'grab';
+      } else {
+        canvas.defaultCursor = 'default';
       }
     }
   }, [selectedTool, brushColor, brushSize]);
@@ -249,7 +266,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     opt.e.stopPropagation();
   };
 
-  const addShape = (shapeType: 'rectangle' | 'circle' | 'line') => {
+  const addShape = (shapeType: 'rectangle' | 'circle' | 'triangle' | 'line') => {
     if (!fabricCanvasRef.current) return;
     
     try {
@@ -273,6 +290,18 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
           stroke: brushColor,
           strokeWidth: 2,
           radius: 50
+        });
+      } else if (shapeType === 'triangle') {
+        shape = new Polygon([
+          { x: 50, y: 0 },
+          { x: 0, y: 100 },
+          { x: 100, y: 100 }
+        ], {
+          left: 100,
+          top: 100,
+          fill: 'transparent',
+          stroke: brushColor,
+          strokeWidth: 2
         });
       }
       
@@ -304,6 +333,69 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     } catch (error) {
       console.error('Error adding text:', error);
     }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !fabricCanvasRef.current) return;
+
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      
+      if (file.type.startsWith('image/')) {
+        // Handle image files
+        FabricImage.fromURL(result).then((img) => {
+          if (fabricCanvasRef.current) {
+            img.set({
+              left: 50,
+              top: 50,
+              scaleX: 0.5,
+              scaleY: 0.5
+            });
+            fabricCanvasRef.current.add(img);
+            fabricCanvasRef.current.setActiveObject(img);
+            handleCanvasChange();
+            toast({
+              title: "Image uploaded",
+              description: "Image has been added to the canvas",
+            });
+          }
+        });
+      } else if (file.type === 'application/pdf') {
+        // For PDF files, we'll show a placeholder since direct PDF rendering requires additional libraries
+        const text = new FabricText(`PDF: ${file.name}`, {
+          left: 50,
+          top: 50,
+          fontFamily: 'Arial',
+          fontSize: 16,
+          fill: '#666666',
+          backgroundColor: '#f0f0f0',
+          padding: 10
+        });
+        
+        fabricCanvasRef.current.add(text);
+        fabricCanvasRef.current.setActiveObject(text);
+        handleCanvasChange();
+        
+        toast({
+          title: "PDF placeholder added",
+          description: "PDF files need special handling. A placeholder has been added.",
+        });
+      }
+    };
+    
+    reader.readAsDataURL(file);
+    
+    // Reset the input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
   };
 
   const undo = () => {
@@ -400,6 +492,15 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
   return (
     <div className="h-full flex" ref={containerRef}>
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.pdf"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
       {/* Main Canvas Area */}
       <div className="flex-1 bg-gray-50 overflow-hidden relative">
         <canvas 
@@ -482,6 +583,24 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
                   className="aspect-square"
                 >
                   <Circle className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addShape('triangle')}
+                  className="aspect-square"
+                >
+                  <Triangle className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={triggerFileUpload}
+                  className="aspect-square"
+                >
+                  <Upload className="h-4 w-4" />
                 </Button>
                 
                 <Button 
