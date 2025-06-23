@@ -66,16 +66,19 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
           width: window.innerWidth - 80,
           height: window.innerHeight - 150,
           backgroundColor: 'white',
-          selection: selectedTool === 'select',
+          selection: false,
           enableRetinaScaling: true,
           allowTouchScrolling: true
         });
 
         fabricCanvasRef.current = canvas;
 
-        // Initialize drawing brush properly
-        canvas.freeDrawingBrush.width = brushSize;
-        canvas.freeDrawingBrush.color = brushColor;
+        // Properly initialize drawing mode and brush
+        canvas.isDrawingMode = true;
+        if (canvas.freeDrawingBrush) {
+          canvas.freeDrawingBrush.width = brushSize;
+          canvas.freeDrawingBrush.color = brushColor;
+        }
 
         // Add event listeners for changes
         canvas.on('path:created', handleCanvasChange);
@@ -92,24 +95,25 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         let lastPosY = 0;
 
         canvas.on('mouse:down', function(opt) {
-          const evt = opt.e;
+          const evt = opt.e as MouseEvent | TouchEvent;
           let clientX = 0;
           let clientY = 0;
           
-          if ('clientX' in evt) {
+          if (evt instanceof MouseEvent) {
             clientX = evt.clientX;
             clientY = evt.clientY;
-          } else if ('touches' in evt && evt.touches.length > 0) {
+          } else if (evt instanceof TouchEvent && evt.touches.length > 0) {
             clientX = evt.touches[0].clientX;
             clientY = evt.touches[0].clientY;
           }
           
-          // Check for altKey only if it exists on the event (MouseEvent)
-          const hasAltKey = 'altKey' in evt && evt.altKey;
+          // Check for altKey only if it exists on MouseEvent
+          const hasAltKey = evt instanceof MouseEvent && evt.altKey;
           
           if (hasAltKey || selectedTool === 'pan') {
             isDragging = true;
             canvas.selection = false;
+            canvas.isDrawingMode = false;
             lastPosX = clientX;
             lastPosY = clientY;
           }
@@ -117,14 +121,14 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
         canvas.on('mouse:move', function(opt) {
           if (isDragging) {
-            const evt = opt.e;
+            const evt = opt.e as MouseEvent | TouchEvent;
             let clientX = 0;
             let clientY = 0;
             
-            if ('clientX' in evt) {
+            if (evt instanceof MouseEvent) {
               clientX = evt.clientX;
               clientY = evt.clientY;
-            } else if ('touches' in evt && evt.touches.length > 0) {
+            } else if (evt instanceof TouchEvent && evt.touches.length > 0) {
               clientX = evt.touches[0].clientX;
               clientY = evt.touches[0].clientY;
             }
@@ -143,7 +147,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         canvas.on('mouse:up', function() {
           canvas.setViewportTransform(canvas.viewportTransform);
           isDragging = false;
-          canvas.selection = selectedTool === 'select';
+          // Restore proper canvas state based on selected tool
+          updateCanvasState();
         });
 
         // Load existing canvas data if provided
@@ -178,6 +183,44 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     };
   }, []);
 
+  // Update canvas state based on selected tool
+  const updateCanvasState = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    
+    const canvas = fabricCanvasRef.current;
+    
+    // Reset canvas modes
+    canvas.selection = selectedTool === 'select';
+    canvas.isDrawingMode = selectedTool === 'pen' || selectedTool === 'eraser';
+    
+    // Configure drawing brush
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.width = brushSize;
+      if (selectedTool === 'eraser') {
+        canvas.freeDrawingBrush.color = canvas.backgroundColor as string || 'white';
+      } else {
+        canvas.freeDrawingBrush.color = brushColor;
+      }
+    }
+    
+    // Set cursor based on tool
+    if (selectedTool === 'pen') {
+      canvas.defaultCursor = 'crosshair';
+      canvas.hoverCursor = 'crosshair';
+    } else if (selectedTool === 'eraser') {
+      canvas.defaultCursor = 'crosshair';
+      canvas.hoverCursor = 'crosshair';
+    } else if (selectedTool === 'pan') {
+      canvas.defaultCursor = 'grab';
+      canvas.hoverCursor = 'grab';
+    } else {
+      canvas.defaultCursor = 'default';
+      canvas.hoverCursor = 'move';
+    }
+    
+    canvas.renderAll();
+  }, [selectedTool, brushColor, brushSize]);
+
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
@@ -197,35 +240,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
   // Update tool settings when tool or settings change
   useEffect(() => {
-    if (fabricCanvasRef.current) {
-      const canvas = fabricCanvasRef.current;
-      
-      // Reset canvas modes
-      canvas.selection = selectedTool === 'select';
-      canvas.isDrawingMode = selectedTool === 'pen' || selectedTool === 'eraser';
-      
-      // Configure drawing brush
-      if (canvas.freeDrawingBrush) {
-        canvas.freeDrawingBrush.width = brushSize;
-        if (selectedTool === 'eraser') {
-          canvas.freeDrawingBrush.color = canvas.backgroundColor as string || 'white';
-        } else {
-          canvas.freeDrawingBrush.color = brushColor;
-        }
-      }
-      
-      // Set cursor based on tool
-      if (selectedTool === 'pen') {
-        canvas.defaultCursor = 'crosshair';
-      } else if (selectedTool === 'eraser') {
-        canvas.defaultCursor = 'crosshair';
-      } else if (selectedTool === 'pan') {
-        canvas.defaultCursor = 'grab';
-      } else {
-        canvas.defaultCursor = 'default';
-      }
-    }
-  }, [selectedTool, brushColor, brushSize]);
+    updateCanvasState();
+  }, [updateCanvasState]);
 
   const handleCanvasChange = useCallback(() => {
     if (fabricCanvasRef.current && onChange) {
@@ -339,6 +355,17 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     const file = event.target.files?.[0];
     if (!file || !fabricCanvasRef.current) return;
 
+    // Check file size (2MB limit)
+    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 2MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const reader = new FileReader();
     
     reader.onload = (e) => {
@@ -348,11 +375,18 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         // Handle image files
         FabricImage.fromURL(result).then((img) => {
           if (fabricCanvasRef.current) {
+            // Scale image to fit reasonably on canvas
+            const maxWidth = 300;
+            const maxHeight = 300;
+            const scaleX = img.width! > maxWidth ? maxWidth / img.width! : 1;
+            const scaleY = img.height! > maxHeight ? maxHeight / img.height! : 1;
+            const scale = Math.min(scaleX, scaleY);
+            
             img.set({
               left: 50,
               top: 50,
-              scaleX: 0.5,
-              scaleY: 0.5
+              scaleX: scale,
+              scaleY: scale
             });
             fabricCanvasRef.current.add(img);
             fabricCanvasRef.current.setActiveObject(img);
@@ -362,26 +396,42 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
               description: "Image has been added to the canvas",
             });
           }
+        }).catch((error) => {
+          console.error('Error loading image:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load image",
+            variant: "destructive"
+          });
         });
       } else if (file.type === 'application/pdf') {
-        // For PDF files, we'll show a placeholder since direct PDF rendering requires additional libraries
-        const text = new FabricText(`PDF: ${file.name}`, {
+        // For PDF files, create a clickable placeholder
+        const text = new FabricText(`📄 PDF: ${file.name}\n(Click to view externally)`, {
           left: 50,
           top: 50,
           fontFamily: 'Arial',
-          fontSize: 16,
-          fill: '#666666',
-          backgroundColor: '#f0f0f0',
-          padding: 10
+          fontSize: 14,
+          fill: '#333333',
+          backgroundColor: '#f8f9fa',
+          padding: 15,
+          textAlign: 'center',
+          cornerStyle: 'circle',
+          borderColor: '#007bff',
+          borderDashArray: [5, 5]
         });
+        
+        // Store the file data for potential future use
+        text.set('fileData', result);
+        text.set('fileName', file.name);
+        text.set('fileType', 'pdf');
         
         fabricCanvasRef.current.add(text);
         fabricCanvasRef.current.setActiveObject(text);
         handleCanvasChange();
         
         toast({
-          title: "PDF placeholder added",
-          description: "PDF files need special handling. A placeholder has been added.",
+          title: "PDF added",
+          description: "PDF placeholder added to canvas. Full PDF rendering requires additional libraries.",
         });
       }
     };
