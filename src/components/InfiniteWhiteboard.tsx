@@ -17,10 +17,16 @@ import {
   Move,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  Palette,
+  Settings,
+  Layers,
+  Grid3X3,
+  MousePointer
 } from 'lucide-react';
-import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle } from 'fabric';
+import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Path } from 'fabric';
 import { useToast } from "@/hooks/use-toast";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface InfiniteWhiteboardProps {
   canvasData?: any;
@@ -34,58 +40,100 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle'>('pen');
+  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'line'>('pen');
   const [brushColor, setBrushColor] = useState('#000000');
-  const [brushSize, setBrushSize] = useState(5);
+  const [brushSize, setBrushSize] = useState(3);
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  
+  // Collapsible states
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const [colorsOpen, setColorsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Initialize canvas
+  // Initialize canvas with proper settings
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
       try {
         const canvas = new FabricCanvas(canvasRef.current, {
-          width: 1200,
-          height: 800,
+          width: window.innerWidth - 400, // Account for sidebar
+          height: window.innerHeight - 150, // Account for header
           backgroundColor: 'white',
-          selection: selectedTool === 'select'
+          selection: selectedTool === 'select',
+          enableRetinaScaling: true,
+          allowTouchScrolling: true
         });
 
         fabricCanvasRef.current = canvas;
 
-        // Set up drawing mode
+        // Set up drawing mode with proper brush settings
         canvas.isDrawingMode = selectedTool === 'pen' || selectedTool === 'eraser';
         if (canvas.freeDrawingBrush) {
           canvas.freeDrawingBrush.width = brushSize;
-          canvas.freeDrawingBrush.color = selectedTool === 'eraser' ? 'white' : brushColor;
+          canvas.freeDrawingBrush.color = selectedTool === 'eraser' ? canvas.backgroundColor as string : brushColor;
         }
 
-        // Add event listeners
+        // Add event listeners for changes
         canvas.on('path:created', handleCanvasChange);
         canvas.on('object:modified', handleCanvasChange);
         canvas.on('object:added', handleCanvasChange);
         canvas.on('object:removed', handleCanvasChange);
 
-        // Load existing canvas data
+        // Add zoom and pan support
+        canvas.on('mouse:wheel', handleWheel);
+        
+        // Pan functionality
+        let isDragging = false;
+        let lastPosX = 0;
+        let lastPosY = 0;
+
+        canvas.on('mouse:down', function(opt) {
+          const evt = opt.e;
+          if (evt.altKey === true || selectedTool === 'pan') {
+            isDragging = true;
+            canvas.selection = false;
+            lastPosX = evt.clientX;
+            lastPosY = evt.clientY;
+          }
+        });
+
+        canvas.on('mouse:move', function(opt) {
+          if (isDragging) {
+            const e = opt.e;
+            const vpt = canvas.viewportTransform;
+            if (vpt) {
+              vpt[4] += e.clientX - lastPosX;
+              vpt[5] += e.clientY - lastPosY;
+              canvas.requestRenderAll();
+              lastPosX = e.clientX;
+              lastPosY = e.clientY;
+            }
+          }
+        });
+
+        canvas.on('mouse:up', function() {
+          canvas.setViewportTransform(canvas.viewportTransform);
+          isDragging = false;
+          canvas.selection = true;
+        });
+
+        // Load existing canvas data if provided
         if (canvasData && Object.keys(canvasData).length > 0) {
           canvas.loadFromJSON(canvasData).then(() => {
             canvas.renderAll();
           }).catch((error) => {
             console.error('Error loading canvas data:', error);
-            toast({
-              title: "Error",
-              description: "Failed to load canvas data",
-              variant: "destructive"
-            });
           });
         }
 
-        // Add zoom and pan support
-        canvas.on('mouse:wheel', handleWheel);
-        
+        // Add initial state to history
+        const initialState = canvas.toJSON();
+        setHistory([initialState]);
+        setHistoryIndex(0);
+
       } catch (error) {
         console.error('Error initializing canvas:', error);
         toast({
@@ -102,6 +150,23 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         fabricCanvasRef.current = null;
       }
     };
+  }, []);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (fabricCanvasRef.current) {
+        const canvas = fabricCanvasRef.current;
+        canvas.setDimensions({
+          width: window.innerWidth - 400,
+          height: window.innerHeight - 150
+        });
+        canvas.renderAll();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Update tool settings
@@ -125,14 +190,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         const canvasJson = fabricCanvasRef.current.toJSON();
         onChange(canvasJson);
         
-        // Auto-save functionality
-        if (!isAutoSaving) {
-          setIsAutoSaving(true);
-          setTimeout(() => {
-            setIsAutoSaving(false);
-          }, 1000);
-        }
-        
         // Update history
         setHistory(prev => {
           const newHistory = [...prev.slice(0, historyIndex + 1), canvasJson];
@@ -144,28 +201,28 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         console.error('Error handling canvas change:', error);
       }
     }
-  }, [onChange, historyIndex, isAutoSaving]);
+  }, [onChange, historyIndex]);
 
   const handleWheel = (opt: any) => {
     const delta = opt.e.deltaY;
-    let newZoom = zoom;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    let newZoom = canvas.getZoom();
+    newZoom *= 0.999 ** delta;
     
-    if (delta > 0) {
-      newZoom = Math.max(0.1, zoom - 0.1);
-    } else {
-      newZoom = Math.min(5, zoom + 0.1);
-    }
+    if (newZoom > 20) newZoom = 20;
+    if (newZoom < 0.01) newZoom = 0.01;
     
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.setZoom(newZoom);
-      setZoom(newZoom);
-    }
+    const point = { x: opt.e.offsetX, y: opt.e.offsetY };
+    canvas.zoomToPoint(point, newZoom);
+    setZoom(newZoom);
     
     opt.e.preventDefault();
     opt.e.stopPropagation();
   };
 
-  const addShape = (shapeType: 'rectangle' | 'circle') => {
+  const addShape = (shapeType: 'rectangle' | 'circle' | 'line') => {
     if (!fabricCanvasRef.current) return;
     
     try {
@@ -181,7 +238,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
           width: 100,
           height: 60
         });
-      } else {
+      } else if (shapeType === 'circle') {
         shape = new FabricCircle({
           left: 100,
           top: 100,
@@ -192,16 +249,13 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         });
       }
       
-      fabricCanvasRef.current.add(shape);
-      fabricCanvasRef.current.setActiveObject(shape);
-      handleCanvasChange();
+      if (shape) {
+        fabricCanvasRef.current.add(shape);
+        fabricCanvasRef.current.setActiveObject(shape);
+        handleCanvasChange();
+      }
     } catch (error) {
       console.error('Error adding shape:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add shape",
-        variant: "destructive"
-      });
     }
   };
 
@@ -222,11 +276,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
       handleCanvasChange();
     } catch (error) {
       console.error('Error adding text:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add text",
-        variant: "destructive"
-      });
     }
   };
 
@@ -265,42 +314,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         fabricCanvasRef.current.backgroundColor = 'white';
         fabricCanvasRef.current.renderAll();
         handleCanvasChange();
-        
-        toast({
-          title: "Canvas cleared",
-          description: "All content has been removed from the canvas",
-        });
       } catch (error) {
         console.error('Error clearing canvas:', error);
-      }
-    }
-  };
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && fabricCanvasRef.current) {
-      try {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const imgUrl = e.target?.result as string;
-          FabricImage.fromURL(imgUrl).then((img) => {
-            if (fabricCanvasRef.current) {
-              img.scaleToWidth(400);
-              fabricCanvasRef.current.add(img);
-              handleCanvasChange();
-            }
-          }).catch((error) => {
-            console.error('Error loading image:', error);
-            toast({
-              title: "Error",
-              description: "Failed to load image",
-              variant: "destructive"
-            });
-          });
-        };
-        reader.readAsDataURL(file);
-      } catch (error) {
-        console.error('Error handling image upload:', error);
       }
     }
   };
@@ -336,245 +351,229 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
       });
     } catch (error) {
       console.error('Error exporting canvas:', error);
-      toast({
-        title: "Export failed",
-        description: "Failed to export canvas",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const zoomIn = () => {
-    const newZoom = Math.min(5, zoom + 0.2);
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.setZoom(newZoom);
-      setZoom(newZoom);
-    }
-  };
-
-  const zoomOut = () => {
-    const newZoom = Math.max(0.1, zoom - 0.2);
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.setZoom(newZoom);
-      setZoom(newZoom);
     }
   };
 
   const resetZoom = () => {
     if (fabricCanvasRef.current) {
       fabricCanvasRef.current.setZoom(1);
+      fabricCanvasRef.current.viewportTransform = [1, 0, 0, 1, 0, 0];
+      fabricCanvasRef.current.renderAll();
       setZoom(1);
     }
   };
 
-  const colors = ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080', '#008000'];
+  const colors = [
+    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', 
+    '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080', 
+    '#008000', '#FFC0CB', '#A52A2A', '#808080', '#87CEEB'
+  ];
+
+  const brushSizes = [1, 2, 3, 5, 8, 12, 16, 20, 25, 30];
 
   return (
-    <div className="h-full flex flex-col" ref={containerRef}>
-      {/* Enhanced Toolbar */}
-      <div className="bg-gray-50 border-b p-3 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center space-x-2">
-          {/* Tool Selection */}
-          <div className="flex items-center space-x-1">
-            <Button
-              variant={selectedTool === 'select' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTool('select')}
-              title="Select Tool"
-            >
-              <Move className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant={selectedTool === 'pen' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTool('pen')}
-              title="Pen Tool"
-            >
-              <Pen className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant={selectedTool === 'eraser' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTool('eraser')}
-              title="Eraser Tool"
-            >
-              <Eraser className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant={selectedTool === 'text' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setSelectedTool('text');
-                addText();
-              }}
-              title="Text Tool"
-            >
-              <Type className="h-4 w-4" />
-            </Button>
-          </div>
+    <div className="h-full flex" ref={containerRef}>
+      {/* Left Toolbar */}
+      <div className="w-16 bg-gray-100 border-r flex flex-col items-center py-4 space-y-2">
+        {/* Main Tools */}
+        <Button
+          variant={selectedTool === 'select' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setSelectedTool('select')}
+          className="w-12 h-12"
+        >
+          <MousePointer className="h-5 w-5" />
+        </Button>
+        
+        <Button
+          variant={selectedTool === 'pen' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setSelectedTool('pen')}
+          className="w-12 h-12"
+        >
+          <Pen className="h-5 w-5" />
+        </Button>
+        
+        <Button
+          variant={selectedTool === 'eraser' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setSelectedTool('eraser')}
+          className="w-12 h-12"
+        >
+          <Eraser className="h-5 w-5" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={addText}
+          className="w-12 h-12"
+        >
+          <Type className="h-5 w-5" />
+        </Button>
 
-          <Separator orientation="vertical" className="h-6" />
+        <Separator className="w-8" />
 
-          {/* Shape Tools */}
-          <div className="flex items-center space-x-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => addShape('rectangle')}
-              title="Add Rectangle"
-            >
-              <Square className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => addShape('circle')}
-              title="Add Circle"
-            >
-              <Circle className="h-4 w-4" />
-            </Button>
-          </div>
+        {/* Shapes */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => addShape('rectangle')}
+          className="w-12 h-12"
+        >
+          <Square className="h-5 w-5" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => addShape('circle')}
+          className="w-12 h-12"
+        >
+          <Circle className="h-5 w-5" />
+        </Button>
 
-          <Separator orientation="vertical" className="h-6" />
+        <Separator className="w-8" />
 
-          {/* Brush Size Controls */}
-          <div className="flex items-center space-x-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setBrushSize(Math.max(1, brushSize - 1))}
-              title="Decrease Brush Size"
-            >
-              <Minus className="h-3 w-3" />
-            </Button>
-            <span className="text-sm w-8 text-center">{brushSize}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setBrushSize(Math.min(50, brushSize + 1))}
-              title="Increase Brush Size"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-6" />
-
-          {/* Color Palette */}
-          <div className="flex items-center space-x-1">
-            {colors.map((color) => (
-              <button
-                key={color}
-                className={`w-6 h-6 rounded border-2 ${
-                  brushColor === color ? 'border-gray-800' : 'border-gray-300'
-                } hover:scale-110 transition-transform`}
-                style={{ backgroundColor: color }}
-                onClick={() => setBrushColor(color)}
-                title={`Select ${color}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {/* Zoom Controls */}
-          <div className="flex items-center space-x-1">
-            <Button variant="outline" size="sm" onClick={zoomOut} title="Zoom Out">
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <span className="text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
-            <Button variant="outline" size="sm" onClick={zoomIn} title="Zoom In">
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={resetZoom} title="Reset Zoom">
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-6" />
-
-          {/* History Controls */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={undo}
-            disabled={historyIndex <= 0}
-            title="Undo"
-          >
-            <Undo className="h-4 w-4" />
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={redo}
-            disabled={historyIndex >= history.length - 1}
-            title="Redo"
-          >
-            <Redo className="h-4 w-4" />
-          </Button>
-
-          <Separator orientation="vertical" className="h-6" />
-
-          {/* File Operations */}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-            id="image-upload"
-          />
-          <Button variant="outline" size="sm" asChild title="Upload Image">
-            <label htmlFor="image-upload" className="cursor-pointer flex items-center">
-              <Upload className="h-4 w-4" />
-            </label>
-          </Button>
-
-          <div className="relative group">
-            <Button variant="outline" size="sm" title="Export Canvas">
-              <Download className="h-4 w-4" />
-            </Button>
-            <div className="absolute right-0 top-full mt-1 bg-white border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-              <button
-                onClick={() => exportCanvas('png')}
-                className="block px-3 py-2 text-sm hover:bg-gray-100 w-full text-left"
-              >
-                Export as PNG
-              </button>
-              <button
-                onClick={() => exportCanvas('svg')}
-                className="block px-3 py-2 text-sm hover:bg-gray-100 w-full text-left"
-              >
-                Export as SVG
-              </button>
-            </div>
-          </div>
-          
-          <Button variant="outline" size="sm" onClick={clearCanvas} title="Clear Canvas">
-            Clear
-          </Button>
-
-          {isAutoSaving && (
-            <span className="text-xs text-green-600 animate-pulse">Auto-saving...</span>
-          )}
-        </div>
+        {/* History */}
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={undo}
+          disabled={historyIndex <= 0}
+          className="w-12 h-12"
+        >
+          <Undo className="h-5 w-5" />
+        </Button>
+        
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={redo}
+          disabled={historyIndex >= history.length - 1}
+          className="w-12 h-12"
+        >
+          <Redo className="h-5 w-5" />
+        </Button>
       </div>
 
-      {/* Canvas Container */}
-      <div className="flex-1 bg-white p-4 overflow-hidden relative">
-        <div className="w-full h-full flex justify-center items-center">
-          <canvas 
-            ref={canvasRef} 
-            className="border border-gray-300 shadow-sm max-w-full max-h-full" 
-          />
-        </div>
+      {/* Right Panel - Collapsible Tools */}
+      <div className="w-80 bg-white border-l flex flex-col">
+        {/* Tools Panel */}
+        <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between p-4">
+              <span className="font-medium">Drawing Tools</span>
+              <Settings className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4 space-y-4">
+            {/* Brush Size */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Brush Size: {brushSize}px</label>
+              <div className="grid grid-cols-5 gap-2">
+                {brushSizes.map((size) => (
+                  <Button
+                    key={size}
+                    variant={brushSize === size ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBrushSize(size)}
+                    className="aspect-square"
+                  >
+                    {size}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Zoom Controls */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Zoom: {Math.round(zoom * 100)}%</label>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={() => setZoom(Math.max(0.1, zoom - 0.2))}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={resetZoom}>
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setZoom(Math.min(5, zoom + 0.2))}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Colors Panel */}
+        <Collapsible open={colorsOpen} onOpenChange={setColorsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between p-4">
+              <span className="font-medium">Colors</span>
+              <Palette className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4">
+            <div className="grid grid-cols-5 gap-2">
+              {colors.map((color) => (
+                <button
+                  key={color}
+                  className={`w-12 h-12 rounded border-2 ${
+                    brushColor === color ? 'border-gray-800 ring-2 ring-blue-500' : 'border-gray-300'
+                  } hover:scale-110 transition-transform`}
+                  style={{ backgroundColor: color }}
+                  onClick={() => setBrushColor(color)}
+                />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Export Panel */}
+        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between p-4">
+              <span className="font-medium">Export & Settings</span>
+              <Download className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4 space-y-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => exportCanvas('png')}
+              className="w-full"
+            >
+              Export as PNG
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => exportCanvas('svg')}
+              className="w-full"
+            >
+              Export as SVG
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={clearCanvas}
+              className="w-full"
+            >
+              Clear Canvas
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* Main Canvas Area */}
+      <div className="flex-1 bg-gray-50 overflow-hidden relative">
+        <canvas 
+          ref={canvasRef} 
+          className="border-none" 
+        />
         
         {/* Zoom indicator */}
-        <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-sm">
+        <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
           {Math.round(zoom * 100)}%
         </div>
       </div>
