@@ -310,7 +310,11 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     
     try {
       if (format === 'png') {
-        const dataURL = fabricCanvasRef.current.toDataURL('image/png');
+        const dataURL = fabricCanvasRef.current.toDataURL({
+          format: 'png',
+          quality: 1,
+          multiplier: 1
+        });
         const link = document.createElement('a');
         link.download = 'whiteboard.png';
         link.href = dataURL;
