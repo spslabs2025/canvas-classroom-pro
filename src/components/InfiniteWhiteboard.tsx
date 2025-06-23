@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -93,11 +92,19 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         let lastPosY = 0;
 
         canvas.on('mouse:down', function(opt) {
-          const evt = opt.e;
-          const clientX = evt.clientX || (evt.touches && evt.touches[0] ? evt.touches[0].clientX : 0);
-          const clientY = evt.clientY || (evt.touches && evt.touches[0] ? evt.touches[0].clientY : 0);
+          const evt = opt.e as MouseEvent | TouchEvent;
+          let clientX = 0;
+          let clientY = 0;
           
-          if (evt.altKey === true || selectedTool === 'pan') {
+          if ('clientX' in evt) {
+            clientX = evt.clientX;
+            clientY = evt.clientY;
+          } else if ('touches' in evt && evt.touches.length > 0) {
+            clientX = evt.touches[0].clientX;
+            clientY = evt.touches[0].clientY;
+          }
+          
+          if ((evt as KeyboardEvent).altKey === true || selectedTool === 'pan') {
             isDragging = true;
             canvas.selection = false;
             lastPosX = clientX;
@@ -107,9 +114,17 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
         canvas.on('mouse:move', function(opt) {
           if (isDragging) {
-            const e = opt.e;
-            const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+            const evt = opt.e as MouseEvent | TouchEvent;
+            let clientX = 0;
+            let clientY = 0;
+            
+            if ('clientX' in evt) {
+              clientX = evt.clientX;
+              clientY = evt.clientY;
+            } else if ('touches' in evt && evt.touches.length > 0) {
+              clientX = evt.touches[0].clientX;
+              clientY = evt.touches[0].clientY;
+            }
             
             const vpt = canvas.viewportTransform;
             if (vpt) {
