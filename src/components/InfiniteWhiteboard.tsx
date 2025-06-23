@@ -2,6 +2,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { 
   Pen, 
   Eraser, 
@@ -22,7 +23,8 @@ import {
   Settings,
   Layers,
   Grid3X3,
-  MousePointer
+  MousePointer,
+  Menu
 } from 'lucide-react';
 import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Path, Point } from 'fabric';
 import { useToast } from "@/hooks/use-toast";
@@ -59,8 +61,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     if (canvasRef.current && !fabricCanvasRef.current) {
       try {
         const canvas = new FabricCanvas(canvasRef.current, {
-          width: window.innerWidth - 400, // Account for sidebar
-          height: window.innerHeight - 150, // Account for header
+          width: window.innerWidth - 80, // Account for smaller space since toolbar is now collapsible
+          height: window.innerHeight - 150,
           backgroundColor: 'white',
           selection: selectedTool === 'select',
           enableRetinaScaling: true,
@@ -92,9 +94,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
         canvas.on('mouse:down', function(opt) {
           const evt = opt.e;
-          // Handle both mouse and touch events properly
-          const clientX = 'clientX' in evt ? evt.clientX : evt.touches?.[0]?.clientX || 0;
-          const clientY = 'clientY' in evt ? evt.clientY : evt.touches?.[0]?.clientY || 0;
+          const clientX = evt.clientX || (evt.touches && evt.touches[0] ? evt.touches[0].clientX : 0);
+          const clientY = evt.clientY || (evt.touches && evt.touches[0] ? evt.touches[0].clientY : 0);
           
           if (evt.altKey === true || selectedTool === 'pan') {
             isDragging = true;
@@ -107,8 +108,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         canvas.on('mouse:move', function(opt) {
           if (isDragging) {
             const e = opt.e;
-            const clientX = 'clientX' in e ? e.clientX : e.touches?.[0]?.clientX || 0;
-            const clientY = 'clientY' in e ? e.clientY : e.touches?.[0]?.clientY || 0;
+            const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
             
             const vpt = canvas.viewportTransform;
             if (vpt) {
@@ -165,7 +166,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
       if (fabricCanvasRef.current) {
         const canvas = fabricCanvasRef.current;
         canvas.setDimensions({
-          width: window.innerWidth - 400,
+          width: window.innerWidth - 80,
           height: window.innerHeight - 150
         });
         canvas.renderAll();
@@ -381,198 +382,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
   return (
     <div className="h-full flex" ref={containerRef}>
-      {/* Left Toolbar */}
-      <div className="w-16 bg-gray-100 border-r flex flex-col items-center py-4 space-y-2">
-        {/* Main Tools */}
-        <Button
-          variant={selectedTool === 'select' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setSelectedTool('select')}
-          className="w-12 h-12"
-        >
-          <MousePointer className="h-5 w-5" />
-        </Button>
-        
-        <Button
-          variant={selectedTool === 'pen' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setSelectedTool('pen')}
-          className="w-12 h-12"
-        >
-          <Pen className="h-5 w-5" />
-        </Button>
-        
-        <Button
-          variant={selectedTool === 'eraser' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setSelectedTool('eraser')}
-          className="w-12 h-12"
-        >
-          <Eraser className="h-5 w-5" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={addText}
-          className="w-12 h-12"
-        >
-          <Type className="h-5 w-5" />
-        </Button>
-
-        <Separator className="w-8" />
-
-        {/* Shapes */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => addShape('rectangle')}
-          className="w-12 h-12"
-        >
-          <Square className="h-5 w-5" />
-        </Button>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => addShape('circle')}
-          className="w-12 h-12"
-        >
-          <Circle className="h-5 w-5" />
-        </Button>
-
-        <Separator className="w-8" />
-
-        {/* History */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={undo}
-          disabled={historyIndex <= 0}
-          className="w-12 h-12"
-        >
-          <Undo className="h-5 w-5" />
-        </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={redo}
-          disabled={historyIndex >= history.length - 1}
-          className="w-12 h-12"
-        >
-          <Redo className="h-5 w-5" />
-        </Button>
-      </div>
-
-      {/* Right Panel - Collapsible Tools */}
-      <div className="w-80 bg-white border-l flex flex-col">
-        {/* Tools Panel */}
-        <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-4">
-              <span className="font-medium">Drawing Tools</span>
-              <Settings className="h-4 w-4" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-4 space-y-4">
-            {/* Brush Size */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Brush Size: {brushSize}px</label>
-              <div className="grid grid-cols-5 gap-2">
-                {brushSizes.map((size) => (
-                  <Button
-                    key={size}
-                    variant={brushSize === size ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setBrushSize(size)}
-                    className="aspect-square"
-                  >
-                    {size}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Zoom Controls */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Zoom: {Math.round(zoom * 100)}%</label>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={() => setZoom(Math.max(0.1, zoom - 0.2))}>
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={resetZoom}>
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setZoom(Math.min(5, zoom + 0.2))}>
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Colors Panel */}
-        <Collapsible open={colorsOpen} onOpenChange={setColorsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-4">
-              <span className="font-medium">Colors</span>
-              <Palette className="h-4 w-4" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-4">
-            <div className="grid grid-cols-5 gap-2">
-              {colors.map((color) => (
-                <button
-                  key={color}
-                  className={`w-12 h-12 rounded border-2 ${
-                    brushColor === color ? 'border-gray-800 ring-2 ring-blue-500' : 'border-gray-300'
-                  } hover:scale-110 transition-transform`}
-                  style={{ backgroundColor: color }}
-                  onClick={() => setBrushColor(color)}
-                />
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        {/* Export Panel */}
-        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between p-4">
-              <span className="font-medium">Export & Settings</span>
-              <Download className="h-4 w-4" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="p-4 space-y-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => exportCanvas('png')}
-              className="w-full"
-            >
-              Export as PNG
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => exportCanvas('svg')}
-              className="w-full"
-            >
-              Export as SVG
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={clearCanvas}
-              className="w-full"
-            >
-              Clear Canvas
-            </Button>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
       {/* Main Canvas Area */}
       <div className="flex-1 bg-gray-50 overflow-hidden relative">
         <canvas 
@@ -581,10 +390,214 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
         />
         
         {/* Zoom indicator */}
-        <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
+        <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
           {Math.round(zoom * 100)}%
         </div>
       </div>
+
+      {/* Right Side Collapsible Toolbar */}
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="fixed top-1/2 right-4 z-50 transform -translate-y-1/2 shadow-lg"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="right" className="w-96 p-0">
+          <div className="h-full flex flex-col">
+            {/* Quick Tools - Top Section */}
+            <div className="p-4 border-b bg-gray-50">
+              <h3 className="font-semibold mb-3">Quick Tools</h3>
+              <div className="grid grid-cols-4 gap-2">
+                <Button
+                  variant={selectedTool === 'select' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setSelectedTool('select')}
+                  className="aspect-square"
+                >
+                  <MousePointer className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant={selectedTool === 'pen' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setSelectedTool('pen')}
+                  className="aspect-square"
+                >
+                  <Pen className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant={selectedTool === 'eraser' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setSelectedTool('eraser')}
+                  className="aspect-square"
+                >
+                  <Eraser className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={addText}
+                  className="aspect-square"
+                >
+                  <Type className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addShape('rectangle')}
+                  className="aspect-square"
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addShape('circle')}
+                  className="aspect-square"
+                >
+                  <Circle className="h-4 w-4" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className="aspect-square"
+                >
+                  <Undo className="h-4 w-4" />
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className="aspect-square"
+                >
+                  <Redo className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Drawing Tools Panel */}
+              <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between p-4">
+                    <span className="font-medium">Drawing Tools</span>
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="p-4 space-y-4">
+                  {/* Brush Size */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Brush Size: {brushSize}px</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {brushSizes.map((size) => (
+                        <Button
+                          key={size}
+                          variant={brushSize === size ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setBrushSize(size)}
+                          className="aspect-square"
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Zoom Controls */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Zoom: {Math.round(zoom * 100)}%</label>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => setZoom(Math.max(0.1, zoom - 0.2))}>
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={resetZoom}>
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setZoom(Math.min(5, zoom + 0.2))}>
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Colors Panel */}
+              <Collapsible open={colorsOpen} onOpenChange={setColorsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between p-4">
+                    <span className="font-medium">Colors</span>
+                    <Palette className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="p-4">
+                  <div className="grid grid-cols-5 gap-2">
+                    {colors.map((color) => (
+                      <button
+                        key={color}
+                        className={`w-12 h-12 rounded border-2 ${
+                          brushColor === color ? 'border-gray-800 ring-2 ring-blue-500' : 'border-gray-300'
+                        } hover:scale-110 transition-transform`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setBrushColor(color)}
+                      />
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Export Panel */}
+              <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between p-4">
+                    <span className="font-medium">Export & Settings</span>
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="p-4 space-y-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => exportCanvas('png')}
+                    className="w-full"
+                  >
+                    Export as PNG
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => exportCanvas('svg')}
+                    className="w-full"
+                  >
+                    Export as SVG
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={clearCanvas}
+                    className="w-full"
+                  >
+                    Clear Canvas
+                  </Button>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
