@@ -104,7 +104,10 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
             clientY = evt.touches[0].clientY;
           }
           
-          if ((evt as KeyboardEvent).altKey === true || selectedTool === 'pan') {
+          // Check for altKey only if it exists on the event (MouseEvent)
+          const hasAltKey = 'altKey' in evt && evt.altKey;
+          
+          if (hasAltKey || selectedTool === 'pan') {
             isDragging = true;
             canvas.selection = false;
             lastPosX = clientX;
