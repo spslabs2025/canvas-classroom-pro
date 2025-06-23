@@ -24,7 +24,7 @@ import {
   Grid3X3,
   MousePointer
 } from 'lucide-react';
-import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Path } from 'fabric';
+import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Path, Point } from 'fabric';
 import { useToast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -40,7 +40,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
-  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'line'>('pen');
+  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'line' | 'pan'>('pen');
   const [brushColor, setBrushColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(3);
   const [zoom, setZoom] = useState(1);
@@ -92,24 +92,31 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
 
         canvas.on('mouse:down', function(opt) {
           const evt = opt.e;
+          // Handle both mouse and touch events properly
+          const clientX = 'clientX' in evt ? evt.clientX : evt.touches?.[0]?.clientX || 0;
+          const clientY = 'clientY' in evt ? evt.clientY : evt.touches?.[0]?.clientY || 0;
+          
           if (evt.altKey === true || selectedTool === 'pan') {
             isDragging = true;
             canvas.selection = false;
-            lastPosX = evt.clientX;
-            lastPosY = evt.clientY;
+            lastPosX = clientX;
+            lastPosY = clientY;
           }
         });
 
         canvas.on('mouse:move', function(opt) {
           if (isDragging) {
             const e = opt.e;
+            const clientX = 'clientX' in e ? e.clientX : e.touches?.[0]?.clientX || 0;
+            const clientY = 'clientY' in e ? e.clientY : e.touches?.[0]?.clientY || 0;
+            
             const vpt = canvas.viewportTransform;
             if (vpt) {
-              vpt[4] += e.clientX - lastPosX;
-              vpt[5] += e.clientY - lastPosY;
+              vpt[4] += clientX - lastPosX;
+              vpt[5] += clientY - lastPosY;
               canvas.requestRenderAll();
-              lastPosX = e.clientX;
-              lastPosY = e.clientY;
+              lastPosX = clientX;
+              lastPosY = clientY;
             }
           }
         });
@@ -214,7 +221,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     if (newZoom > 20) newZoom = 20;
     if (newZoom < 0.01) newZoom = 0.01;
     
-    const point = { x: opt.e.offsetX, y: opt.e.offsetY };
+    // Create a proper Point object for Fabric.js
+    const point = new Point(opt.e.offsetX, opt.e.offsetY);
     canvas.zoomToPoint(point, newZoom);
     setZoom(newZoom);
     
