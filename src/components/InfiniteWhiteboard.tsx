@@ -58,27 +58,41 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
   const [colorsOpen, setColorsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Initialize canvas with proper settings
+  // Initialize canvas with proper settings for drawing
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
+    if (canvasRef.current && !fabricCanvasRef.current && containerRef.current) {
       try {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        
         const canvas = new FabricCanvas(canvasRef.current, {
-          width: window.innerWidth - 80,
-          height: window.innerHeight - 150,
+          width: containerRect.width - 400, // Account for toolbar space
+          height: containerRect.height,
           backgroundColor: 'white',
           selection: true,
           enableRetinaScaling: true,
-          allowTouchScrolling: true
+          allowTouchScrolling: true,
+          renderOnAddRemove: true,
+          preserveObjectStacking: true
         });
 
         fabricCanvasRef.current = canvas;
 
-        // Initialize drawing mode and brush
+        // Optimize for drawing performance
         canvas.isDrawingMode = true;
         if (canvas.freeDrawingBrush) {
           canvas.freeDrawingBrush.width = brushSize;
           canvas.freeDrawingBrush.color = brushColor;
+          canvas.freeDrawingBrush.strokeLineCap = 'round';
+          canvas.freeDrawingBrush.strokeLineJoin = 'round';
         }
+
+        // Enhanced touch and pen tablet support
+        canvas.on('mouse:down', function(opt) {
+          if (opt.e.type === 'touchstart' || opt.e.type === 'pointerdown') {
+            // Prevent default touch behaviors that might interfere with drawing
+            opt.e.preventDefault();
+          }
+        });
 
         // Add event listeners for changes
         canvas.on('path:created', handleCanvasChange);
@@ -89,7 +103,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
         // Add zoom and pan support
         canvas.on('mouse:wheel', handleWheel);
         
-        // Pan functionality
+        // Pan functionality with Alt key or pan tool
         let isDragging = false;
         let lastPosX = 0;
         let lastPosY = 0;
@@ -146,7 +160,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
         canvas.on('mouse:up', function() {
           canvas.setViewportTransform(canvas.viewportTransform);
           isDragging = false;
-          // Restore proper canvas state based on selected tool
           updateCanvasState();
         });
 
@@ -180,6 +193,24 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
         fabricCanvasRef.current = null;
       }
     };
+  }, []);
+
+  // Handle window resize to maintain proper canvas dimensions
+  useEffect(() => {
+    const handleResize = () => {
+      if (fabricCanvasRef.current && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const canvas = fabricCanvasRef.current;
+        canvas.setDimensions({
+          width: containerRect.width - 400,
+          height: containerRect.height
+        });
+        canvas.renderAll();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Update canvas state based on selected tool
@@ -219,28 +250,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
     
     canvas.renderAll();
   }, [selectedTool, brushColor, brushSize]);
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (fabricCanvasRef.current) {
-        const canvas = fabricCanvasRef.current;
-        canvas.setDimensions({
-          width: window.innerWidth - 80,
-          height: window.innerHeight - 150
-        });
-        canvas.renderAll();
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Update tool settings when tool or settings change
-  useEffect(() => {
-    updateCanvasState();
-  }, [updateCanvasState]);
 
   const handleCanvasChange = useCallback(() => {
     if (fabricCanvasRef.current && onChange) {
@@ -553,7 +562,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
       <div className="flex-1 bg-gray-50 overflow-hidden relative">
         <canvas 
           ref={canvasRef} 
-          className="border-none" 
+          className="border-none cursor-crosshair"
+          style={{ touchAction: 'none' }} // Important for pen tablet support
         />
         
         {/* Zoom indicator */}

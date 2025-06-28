@@ -1,6 +1,6 @@
 
 import { useRef, useEffect, useState } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, VideoOff } from 'lucide-react';
 
 interface WebcamPreviewProps {
@@ -28,7 +28,11 @@ const WebcamPreview = ({ isEnabled, isRecording }: WebcamPreviewProps) => {
   const startWebcam = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        }, 
         audio: false 
       });
       
@@ -54,33 +58,37 @@ const WebcamPreview = ({ isEnabled, isRecording }: WebcamPreviewProps) => {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-white font-medium flex items-center">
-          {isEnabled ? <Video className="h-4 w-4 mr-2" /> : <VideoOff className="h-4 w-4 mr-2" />}
-          Webcam Preview
-        </h3>
-        {isRecording && (
-          <div className="flex items-center space-x-2">
-            <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-red-400 text-sm">Recording</span>
+    <Card className="h-full bg-gradient-to-b from-gray-900 to-black border-gray-700">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-white text-lg">
+          <div className="flex items-center">
+            {isEnabled ? <Video className="h-5 w-5 mr-2" /> : <VideoOff className="h-5 w-5 mr-2" />}
+            Camera Preview
           </div>
-        )}
-      </div>
-
-      <Card className="flex-1 bg-gray-900 border-gray-700">
-        <CardContent className="p-0 h-full">
+          {isRecording && (
+            <div className="flex items-center space-x-2">
+              <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-red-400 text-sm">REC</span>
+            </div>
+          )}
+        </CardTitle>
+      </CardHeader>
+      
+      <CardContent className="p-0 flex-1">
+        <div className="h-full rounded-b-lg overflow-hidden">
           {!isEnabled ? (
-            <div className="h-full flex items-center justify-center bg-gray-800 rounded">
+            <div className="h-full flex items-center justify-center bg-gray-800">
               <div className="text-center text-gray-400">
-                <VideoOff className="h-12 w-12 mx-auto mb-2" />
-                <p>Camera disabled</p>
+                <VideoOff className="h-16 w-16 mx-auto mb-4" />
+                <p className="text-lg">Camera Disabled</p>
+                <p className="text-sm">Enable camera to see preview</p>
               </div>
             </div>
           ) : error ? (
-            <div className="h-full flex items-center justify-center bg-gray-800 rounded">
+            <div className="h-full flex items-center justify-center bg-gray-800">
               <div className="text-center text-red-400">
-                <VideoOff className="h-12 w-12 mx-auto mb-2" />
+                <VideoOff className="h-16 w-16 mx-auto mb-4" />
+                <p className="text-lg">Camera Error</p>
                 <p className="text-sm">{error}</p>
               </div>
             </div>
@@ -90,12 +98,12 @@ const WebcamPreview = ({ isEnabled, isRecording }: WebcamPreviewProps) => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover rounded"
+              className="w-full h-full object-cover bg-black"
             />
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

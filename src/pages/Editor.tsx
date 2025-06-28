@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Save, Settings } from 'lucide-react';
@@ -11,7 +11,7 @@ import RecordingControls from '@/components/RecordingControls';
 import EnhancedRecordingControls from '@/components/EnhancedRecordingControls';
 import SlideManager from '@/components/SlideManager';
 import MediaControls from '@/components/MediaControls';
-import ResizableWebcamPreview from '@/components/ResizableWebcamPreview';
+import WebcamPreview from '@/components/WebcamPreview';
 import Footer from '@/components/Footer';
 
 interface Lesson {
@@ -289,46 +289,54 @@ const Editor = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Tools and Controls */}
-        <div className="w-80 bg-white/70 backdrop-blur-sm border-r border-blue-100 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Recording Controls */}
+      {/* Controls Strip */}
+      <div className="bg-white/70 backdrop-blur-sm border-b border-blue-100 px-4 py-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
             <EnhancedRecordingControls />
-            
-            {/* Slide Manager */}
-            <SlideManager
-              slides={slides}
-              currentSlideIndex={currentSlideIndex}
-              onSlideSelect={handleSlideSelect}
-              onAddSlide={addNewSlide}
-            />
-
-            {/* Media Controls */}
             <MediaControls
               isAudioEnabled={isAudioEnabled}
               isVideoEnabled={isVideoEnabled}
               onAudioToggle={handleAudioToggle}
               onVideoToggle={handleVideoToggle}
             />
-
-            {/* Webcam Preview */}
-            <ResizableWebcamPreview
-              isEnabled={isVideoEnabled}
-              isRecording={isRecording}
-            />
           </div>
-        </div>
-
-        {/* Main Canvas Area */}
-        <div className="flex-1 flex flex-col">
-          <InfiniteWhiteboard
-            canvasData={currentSlide?.canvas_data}
-            onChange={handleCanvasChange}
-            className="flex-1"
+          
+          <SlideManager
+            slides={slides}
+            currentSlideIndex={currentSlideIndex}
+            onSlideSelect={handleSlideSelect}
+            onAddSlide={addNewSlide}
           />
         </div>
+      </div>
+
+      {/* Main Content - Split Layout */}
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Left Panel - Camera (40%) */}
+          <ResizablePanel defaultSize={40} minSize={25} maxSize={55}>
+            <div className="h-full p-4 bg-white/50">
+              <WebcamPreview
+                isEnabled={isVideoEnabled}
+                isRecording={isRecording}
+              />
+            </div>
+          </ResizablePanel>
+          
+          <ResizableHandle withHandle />
+          
+          {/* Right Panel - Whiteboard (60%) */}
+          <ResizablePanel defaultSize={60} minSize={45} maxSize={75}>
+            <div className="h-full bg-white">
+              <InfiniteWhiteboard
+                canvasData={currentSlide?.canvas_data}
+                onChange={handleCanvasChange}
+                className="h-full"
+              />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
 
       <Footer />
