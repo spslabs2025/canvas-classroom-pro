@@ -66,14 +66,14 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
           width: window.innerWidth - 80,
           height: window.innerHeight - 150,
           backgroundColor: 'white',
-          selection: false,
+          selection: true,
           enableRetinaScaling: true,
           allowTouchScrolling: true
         });
 
         fabricCanvasRef.current = canvas;
 
-        // Properly initialize drawing mode and brush
+        // Initialize drawing mode and brush
         canvas.isDrawingMode = true;
         if (canvas.freeDrawingBrush) {
           canvas.freeDrawingBrush.width = brushSize;
@@ -107,7 +107,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
             clientY = evt.touches[0].clientY;
           }
           
-          // Check for altKey only if it exists on MouseEvent
           const hasAltKey = evt instanceof MouseEvent && evt.altKey;
           
           if (hasAltKey || selectedTool === 'pan') {
@@ -197,7 +196,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     if (canvas.freeDrawingBrush) {
       canvas.freeDrawingBrush.width = brushSize;
       if (selectedTool === 'eraser') {
-        canvas.freeDrawingBrush.color = canvas.backgroundColor as string || 'white';
+        canvas.freeDrawingBrush.color = 'white';
       } else {
         canvas.freeDrawingBrush.color = brushColor;
       }
@@ -273,7 +272,6 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
     if (newZoom > 20) newZoom = 20;
     if (newZoom < 0.01) newZoom = 0.01;
     
-    // Create a proper Point object for Fabric.js
     const point = new Point(opt.e.offsetX, opt.e.offsetY);
     canvas.zoomToPoint(point, newZoom);
     setZoom(newZoom);
