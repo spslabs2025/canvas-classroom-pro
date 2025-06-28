@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,9 @@ const Editor = () => {
   const [currentSlide, setCurrentSlide] = useState<any>(null);
   const [slides, setSlides] = useState<any[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -72,29 +76,37 @@ const Editor = () => {
       
       setLesson(mappedLesson);
 
-      // Fetch or create canvas data
-      const { data: canvasDataResult, error: canvasError } = await supabase
+      // Fetch slides for this lesson
+      const { data: slidesData, error: slidesError } = await supabase
         .from('slides')
-        .select('canvas_data')
+        .select('*')
         .eq('lesson_id', lessonId)
-        .single();
+        .order('order_index');
 
-      if (canvasError && canvasError.code !== 'PGRST116') {
-        console.error('Error fetching canvas data:', canvasError);
-      } else if (canvasDataResult) {
-        setCanvasData(canvasDataResult.canvas_data || {});
+      if (slidesError) {
+        console.error('Error fetching slides:', slidesError);
+      } else if (slidesData && slidesData.length > 0) {
+        setSlides(slidesData);
+        setCurrentSlide(slidesData[0]);
+        setCanvasData(slidesData[0].canvas_data || {});
       } else {
         // Create initial slide if none exists
-        const { error: insertError } = await supabase
+        const { data: newSlide, error: insertError } = await supabase
           .from('slides')
           .insert({
             lesson_id: lessonId,
             order_index: 0,
             canvas_data: {}
-          });
+          })
+          .select()
+          .single();
 
         if (insertError) {
           console.error('Error creating initial slide:', insertError);
+        } else if (newSlide) {
+          setSlides([newSlide]);
+          setCurrentSlide(newSlide);
+          setCanvasData(newSlide.canvas_data || {});
         }
       }
       
@@ -114,15 +126,14 @@ const Editor = () => {
   const handleCanvasChange = async (newCanvasData: any) => {
     setCanvasData(newCanvasData);
     
-    if (autoSave) {
+    if (autoSave && currentSlide) {
       try {
         const { error } = await supabase
           .from('slides')
-          .upsert({
-            lesson_id: lessonId,
-            order_index: 0,
+          .update({
             canvas_data: newCanvasData
-          });
+          })
+          .eq('id', currentSlide.id);
 
         if (error) {
           console.error('Error auto-saving canvas:', error);
@@ -162,6 +173,7 @@ const Editor = () => {
   };
 
   const handleRecordingStart = (blob: Blob) => {
+    setIsRecording(true);
     toast({
       title: "Recording started",
       description: "Your lesson recording has begun.",
@@ -169,97 +181,49 @@ const Editor = () => {
   };
 
   const handleRecordingStop = (blob: Blob) => {
+    setIsRecording(false);
     toast({
       title: "Recording completed",
       description: "Your lesson has been recorded successfully.",
     });
   };
 
-  const handleCanvasDataChange = async (newCanvasData: any) => {
-    try {
-      const { error } = await supabase
-        .from('slides')
-        .upsert({
-          lesson_id: lessonId,
-          order_index: 0,
-          canvas_data: newCanvasData
-        });
-
-      if (error) {
-        console.error('Error updating canvas data:', error);
-      }
-    } catch (error) {
-      console.error('Error during canvas data update:', error);
-    }
-  };
-
-  const handleBackgroundChange = async (newBackgroundTemplate: string) => {
-    try {
-      const { error } = await supabase
-        .from('slides')
-        .update({
-          background_template: newBackgroundTemplate
-        })
-        .eq('lesson_id', lessonId)
-        .eq('order_index', 0);
-
-      if (error) {
-        console.error('Error updating background template:', error);
-      }
-    } catch (error) {
-      console.error('Error during background template update:', error);
-    }
-  };
-
   const addNewSlide = async () => {
     try {
-      const { error } = await supabase
+      const { data: newSlide, error } = await supabase
         .from('slides')
         .insert({
           lesson_id: lessonId,
           order_index: slides.length,
           canvas_data: {}
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error adding new slide:', error);
+      } else if (newSlide) {
+        setSlides([...slides, newSlide]);
       }
     } catch (error) {
       console.error('Error during slide addition:', error);
     }
   };
 
-  const deleteSlide = async (slideId: string) => {
-    try {
-      const { error } = await supabase
-        .from('slides')
-        .delete()
-        .eq('id', slideId);
-
-      if (error) {
-        console.error('Error deleting slide:', error);
-      }
-    } catch (error) {
-      console.error('Error during slide deletion:', error);
+  const handleSlideSelect = (index: number) => {
+    setCurrentSlideIndex(index);
+    if (slides[index]) {
+      setCurrentSlide(slides[index]);
+      setCanvasData(slides[index].canvas_data || {});
     }
   };
 
-  const duplicateSlide = async (slideId: string) => {
-    try {
-      const { error } = await supabase
-        .from('slides')
-        .insert({
-          lesson_id: lessonId,
-          order_index: slides.length,
-          canvas_data: {}
-        });
+  const handleAudioToggle = () => {
+    setIsAudioEnabled(!isAudioEnabled);
+  };
 
-      if (error) {
-        console.error('Error duplicating slide:', error);
-      }
-    } catch (error) {
-      console.error('Error during slide duplication:', error);
-    }
+  const handleVideoToggle = () => {
+    setIsVideoEnabled(!isVideoEnabled);
   };
 
   if (isLoading) {
@@ -337,17 +301,23 @@ const Editor = () => {
             <SlideManager
               slides={slides}
               currentSlideIndex={currentSlideIndex}
-              onSlideSelect={setCurrentSlideIndex}
+              onSlideSelect={handleSlideSelect}
               onAddSlide={addNewSlide}
-              onDeleteSlide={deleteSlide}
-              onDuplicateSlide={duplicateSlide}
             />
 
             {/* Media Controls */}
-            <MediaControls />
+            <MediaControls
+              isAudioEnabled={isAudioEnabled}
+              isVideoEnabled={isVideoEnabled}
+              onAudioToggle={handleAudioToggle}
+              onVideoToggle={handleVideoToggle}
+            />
 
             {/* Webcam Preview */}
-            <ResizableWebcamPreview />
+            <ResizableWebcamPreview
+              isEnabled={isVideoEnabled}
+              isRecording={isRecording}
+            />
           </div>
         </div>
 
@@ -355,9 +325,7 @@ const Editor = () => {
         <div className="flex-1 flex flex-col">
           <InfiniteWhiteboard
             canvasData={currentSlide?.canvas_data}
-            onCanvasDataChange={handleCanvasDataChange}
-            backgroundTemplate={currentSlide?.background_template || 'white'}
-            onBackgroundChange={handleBackgroundChange}
+            onChange={handleCanvasChange}
             className="flex-1"
           />
         </div>

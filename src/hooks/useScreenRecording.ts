@@ -12,10 +12,9 @@ export const useScreenRecording = () => {
 
   const startRecording = useCallback(async () => {
     try {
-      // Get screen capture
+      // Get screen capture - remove invalid mediaSource property
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          mediaSource: 'screen',
           width: { ideal: 1920 },
           height: { ideal: 1080 },
           frameRate: { ideal: 30 }
