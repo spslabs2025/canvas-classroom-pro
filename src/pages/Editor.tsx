@@ -7,11 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Save, Settings } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
-import RecordingControls from '@/components/RecordingControls';
-import EnhancedRecordingControls from '@/components/EnhancedRecordingControls';
-import SlideManager from '@/components/SlideManager';
-import MediaControls from '@/components/MediaControls';
 import WebcamPreview from '@/components/WebcamPreview';
+import RecordingSidebar from '@/components/RecordingSidebar';
+import SlidesSidebar from '@/components/SlidesSidebar';
 import Footer from '@/components/Footer';
 
 interface Lesson {
@@ -226,6 +224,51 @@ const Editor = () => {
     setIsVideoEnabled(!isVideoEnabled);
   };
 
+  const deleteSlide = async (slideId: string) => {
+    try {
+      const { error } = await supabase
+        .from('slides')
+        .delete()
+        .eq('id', slideId);
+
+      if (error) {
+        console.error('Error deleting slide:', error);
+      } else {
+        setSlides(slides.filter(slide => slide.id !== slideId));
+        if (currentSlideIndex >= slides.length - 1) {
+          setCurrentSlideIndex(Math.max(0, slides.length - 2));
+        }
+      }
+    } catch (error) {
+      console.error('Error during slide deletion:', error);
+    }
+  };
+
+  const duplicateSlide = async (slideId: string) => {
+    try {
+      const slideToClone = slides.find(slide => slide.id === slideId);
+      if (!slideToClone) return;
+
+      const { data: newSlide, error } = await supabase
+        .from('slides')
+        .insert({
+          lesson_id: lessonId,
+          order_index: slides.length,
+          canvas_data: slideToClone.canvas_data
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error duplicating slide:', error);
+      } else if (newSlide) {
+        setSlides([...slides, newSlide]);
+      }
+    } catch (error) {
+      console.error('Error during slide duplication:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -289,54 +332,53 @@ const Editor = () => {
         </div>
       </header>
 
-      {/* Controls Strip */}
-      <div className="bg-white/70 backdrop-blur-sm border-b border-blue-100 px-4 py-2 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <EnhancedRecordingControls />
-            <MediaControls
-              isAudioEnabled={isAudioEnabled}
-              isVideoEnabled={isVideoEnabled}
-              onAudioToggle={handleAudioToggle}
-              onVideoToggle={handleVideoToggle}
-            />
-          </div>
-          
-          <SlideManager
-            slides={slides}
-            currentSlideIndex={currentSlideIndex}
-            onSlideSelect={handleSlideSelect}
-            onAddSlide={addNewSlide}
-          />
+      {/* Main Content - Three Panel Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Recording Controls */}
+        <RecordingSidebar
+          isAudioEnabled={isAudioEnabled}
+          isVideoEnabled={isVideoEnabled}
+          onAudioToggle={handleAudioToggle}
+          onVideoToggle={handleVideoToggle}
+        />
+        
+        {/* Center Content - Split Layout */}
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanelGroup direction="horizontal">
+            {/* Camera Panel (40%) */}
+            <ResizablePanel defaultSize={40} minSize={25} maxSize={55}>
+              <div className="h-full p-4 bg-white/50">
+                <WebcamPreview
+                  isEnabled={isVideoEnabled}
+                  isRecording={isRecording}
+                />
+              </div>
+            </ResizablePanel>
+            
+            <ResizableHandle withHandle />
+            
+            {/* Whiteboard Panel (60%) */}
+            <ResizablePanel defaultSize={60} minSize={45} maxSize={75}>
+              <div className="h-full bg-white">
+                <InfiniteWhiteboard
+                  canvasData={currentSlide?.canvas_data}
+                  onChange={handleCanvasChange}
+                  className="h-full"
+                />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </div>
-      </div>
 
-      {/* Main Content - Split Layout */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Left Panel - Camera (40%) */}
-          <ResizablePanel defaultSize={40} minSize={25} maxSize={55}>
-            <div className="h-full p-4 bg-white/50">
-              <WebcamPreview
-                isEnabled={isVideoEnabled}
-                isRecording={isRecording}
-              />
-            </div>
-          </ResizablePanel>
-          
-          <ResizableHandle withHandle />
-          
-          {/* Right Panel - Whiteboard (60%) */}
-          <ResizablePanel defaultSize={60} minSize={45} maxSize={75}>
-            <div className="h-full bg-white">
-              <InfiniteWhiteboard
-                canvasData={currentSlide?.canvas_data}
-                onChange={handleCanvasChange}
-                className="h-full"
-              />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {/* Right Sidebar - Slides */}
+        <SlidesSidebar
+          slides={slides}
+          currentSlideIndex={currentSlideIndex}
+          onSlideSelect={handleSlideSelect}
+          onAddSlide={addNewSlide}
+          onDeleteSlide={deleteSlide}
+          onDuplicateSlide={duplicateSlide}
+        />
       </div>
 
       <Footer />
