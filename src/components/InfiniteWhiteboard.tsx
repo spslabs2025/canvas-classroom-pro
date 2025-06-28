@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -35,9 +34,10 @@ interface InfiniteWhiteboardProps {
   canvasData?: any;
   onChange?: (canvasData: any) => void;
   isCollaborative?: boolean;
+  className?: string;
 }
 
-const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: InfiniteWhiteboardProps) => {
+const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, className }: InfiniteWhiteboardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -539,7 +539,7 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false }: I
   const brushSizes = [1, 2, 3, 5, 8, 12, 16, 20, 25, 30];
 
   return (
-    <div className="h-full flex" ref={containerRef}>
+    <div className={`h-full flex ${className || ''}`} ref={containerRef}>
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
