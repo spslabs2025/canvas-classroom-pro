@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,11 @@ import { ArrowLeft, Save, Settings } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
 import RecordingControls from '@/components/RecordingControls';
+import EnhancedRecordingControls from '@/components/EnhancedRecordingControls';
+import SlideManager from '@/components/SlideManager';
+import MediaControls from '@/components/MediaControls';
+import ResizableWebcamPreview from '@/components/ResizableWebcamPreview';
+import Footer from '@/components/Footer';
 
 interface Lesson {
   id: string;
@@ -28,6 +32,9 @@ const Editor = () => {
   const [canvasData, setCanvasData] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState<any>(null);
+  const [slides, setSlides] = useState<any[]>([]);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -168,6 +175,93 @@ const Editor = () => {
     });
   };
 
+  const handleCanvasDataChange = async (newCanvasData: any) => {
+    try {
+      const { error } = await supabase
+        .from('slides')
+        .upsert({
+          lesson_id: lessonId,
+          order_index: 0,
+          canvas_data: newCanvasData
+        });
+
+      if (error) {
+        console.error('Error updating canvas data:', error);
+      }
+    } catch (error) {
+      console.error('Error during canvas data update:', error);
+    }
+  };
+
+  const handleBackgroundChange = async (newBackgroundTemplate: string) => {
+    try {
+      const { error } = await supabase
+        .from('slides')
+        .update({
+          background_template: newBackgroundTemplate
+        })
+        .eq('lesson_id', lessonId)
+        .eq('order_index', 0);
+
+      if (error) {
+        console.error('Error updating background template:', error);
+      }
+    } catch (error) {
+      console.error('Error during background template update:', error);
+    }
+  };
+
+  const addNewSlide = async () => {
+    try {
+      const { error } = await supabase
+        .from('slides')
+        .insert({
+          lesson_id: lessonId,
+          order_index: slides.length,
+          canvas_data: {}
+        });
+
+      if (error) {
+        console.error('Error adding new slide:', error);
+      }
+    } catch (error) {
+      console.error('Error during slide addition:', error);
+    }
+  };
+
+  const deleteSlide = async (slideId: string) => {
+    try {
+      const { error } = await supabase
+        .from('slides')
+        .delete()
+        .eq('id', slideId);
+
+      if (error) {
+        console.error('Error deleting slide:', error);
+      }
+    } catch (error) {
+      console.error('Error during slide deletion:', error);
+    }
+  };
+
+  const duplicateSlide = async (slideId: string) => {
+    try {
+      const { error } = await supabase
+        .from('slides')
+        .insert({
+          lesson_id: lessonId,
+          order_index: slides.length,
+          canvas_data: {}
+        });
+
+      if (error) {
+        console.error('Error duplicating slide:', error);
+      }
+    } catch (error) {
+      console.error('Error during slide duplication:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -194,9 +288,9 @@ const Editor = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
-      <header className="bg-white border-b px-4 py-3 flex items-center justify-between">
+      <header className="bg-white/90 backdrop-blur-sm border-b border-blue-100 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
@@ -232,22 +326,44 @@ const Editor = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
-        {/* Recording Controls - Left Side */}
-        <RecordingControls
-          onRecordingStart={handleRecordingStart}
-          onRecordingStop={handleRecordingStop}
-        />
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Tools and Controls */}
+        <div className="w-80 bg-white/70 backdrop-blur-sm border-r border-blue-100 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Recording Controls */}
+            <EnhancedRecordingControls />
+            
+            {/* Slide Manager */}
+            <SlideManager
+              slides={slides}
+              currentSlideIndex={currentSlideIndex}
+              onSlideSelect={setCurrentSlideIndex}
+              onAddSlide={addNewSlide}
+              onDeleteSlide={deleteSlide}
+              onDuplicateSlide={duplicateSlide}
+            />
 
-        {/* Whiteboard - Right Side */}
-        <div className="flex-1">
+            {/* Media Controls */}
+            <MediaControls />
+
+            {/* Webcam Preview */}
+            <ResizableWebcamPreview />
+          </div>
+        </div>
+
+        {/* Main Canvas Area */}
+        <div className="flex-1 flex flex-col">
           <InfiniteWhiteboard
-            canvasData={canvasData}
-            onChange={handleCanvasChange}
-            isCollaborative={false}
+            canvasData={currentSlide?.canvas_data}
+            onCanvasDataChange={handleCanvasDataChange}
+            backgroundTemplate={currentSlide?.background_template || 'white'}
+            onBackgroundChange={handleBackgroundChange}
+            className="flex-1"
           />
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 };
