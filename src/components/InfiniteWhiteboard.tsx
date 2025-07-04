@@ -226,6 +226,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
     // Configure drawing brush
     if (canvas.freeDrawingBrush) {
       canvas.freeDrawingBrush.width = brushSize;
+      canvas.freeDrawingBrush.strokeLineCap = 'round';
+      canvas.freeDrawingBrush.strokeLineJoin = 'round';
       if (selectedTool === 'eraser') {
         canvas.freeDrawingBrush.color = 'white';
       } else {
@@ -250,6 +252,11 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
     
     canvas.renderAll();
   }, [selectedTool, brushColor, brushSize]);
+
+  // Call updateCanvasState when tool or canvas changes
+  useEffect(() => {
+    updateCanvasState();
+  }, [updateCanvasState]);
 
   const handleCanvasChange = useCallback(() => {
     if (fabricCanvasRef.current && onChange) {
