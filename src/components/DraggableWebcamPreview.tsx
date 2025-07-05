@@ -2,25 +2,21 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { X, Move } from 'lucide-react';
 import WebcamPreview from './WebcamPreview';
-
-interface DraggableWebcamPreviewProps {
-  isEnabled: boolean;
-  isRecording: boolean;
-  onClose?: () => void;
-}
+import { DraggableWebcamPreviewProps, Position } from '@/types';
 
 const DraggableWebcamPreview = ({ 
   isEnabled, 
   isRecording, 
   onClose 
 }: DraggableWebcamPreviewProps) => {
-  const [position, setPosition] = useState({ x: 20, y: 20 });
+  const [position, setPosition] = useState<Position>({ x: 20, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const [isMinimized, setIsMinimized] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       setDragOffset({
@@ -34,8 +30,9 @@ const DraggableWebcamPreview = ({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
+        const containerHeight = isMinimized ? 60 : 240;
         const newX = Math.max(0, Math.min(window.innerWidth - 320, e.clientX - dragOffset.x));
-        const newY = Math.max(0, Math.min(window.innerHeight - (isMinimized ? 60 : 240), e.clientY - dragOffset.y));
+        const newY = Math.max(0, Math.min(window.innerHeight - containerHeight, e.clientY - dragOffset.y));
         
         setPosition({ x: newX, y: newY });
       }
@@ -54,7 +51,7 @@ const DraggableWebcamPreview = ({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragOffset, isMinimized]);
+  }, [isDragging, dragOffset.x, dragOffset.y, isMinimized]);
 
   return (
     <div

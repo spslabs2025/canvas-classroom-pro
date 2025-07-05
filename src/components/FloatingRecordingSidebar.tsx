@@ -5,20 +5,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronDown, ChevronRight, Video, VideoOff, Mic, MicOff, Settings } from 'lucide-react';
 import EnhancedRecordingControls from './EnhancedRecordingControls';
-
-interface FloatingRecordingSidebarProps {
-  isAudioEnabled: boolean;
-  isVideoEnabled: boolean;
-  onAudioToggle: () => void;
-  onVideoToggle: () => void;
-}
+import { RecordingSidebarProps } from '@/types';
 
 const FloatingRecordingSidebar = ({ 
   isAudioEnabled, 
   isVideoEnabled, 
   onAudioToggle, 
   onVideoToggle 
-}: FloatingRecordingSidebarProps) => {
+}: RecordingSidebarProps) => {
   const [isRecordingOpen, setIsRecordingOpen] = useState(true);
   const [isMediaOpen, setIsMediaOpen] = useState(true);
 

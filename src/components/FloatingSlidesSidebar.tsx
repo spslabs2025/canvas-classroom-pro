@@ -5,22 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ChevronDown, ChevronRight, Layers, Copy, Trash2 } from 'lucide-react';
 import SlideManager from './SlideManager';
-
-interface Slide {
-  id: string;
-  lesson_id: string;
-  order_index: number;
-  canvas_data: any;
-}
-
-interface FloatingSlidesSidebarProps {
-  slides: Slide[];
-  currentSlideIndex: number;
-  onSlideSelect: (index: number) => void;
-  onAddSlide: () => void;
-  onDeleteSlide: (slideId: string) => void;
-  onDuplicateSlide: (slideId: string) => void;
-}
+import { Slide, SlideManagerProps } from '@/types';
 
 const FloatingSlidesSidebar = ({ 
   slides, 
@@ -29,7 +14,7 @@ const FloatingSlidesSidebar = ({
   onAddSlide,
   onDeleteSlide,
   onDuplicateSlide 
-}: FloatingSlidesSidebarProps) => {
+}: SlideManagerProps) => {
   const [isSlidesOpen, setIsSlidesOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
 

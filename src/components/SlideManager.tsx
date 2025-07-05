@@ -2,22 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Copy, Trash2 } from 'lucide-react';
-
-interface Slide {
-  id: string;
-  lesson_id: string;
-  order_index: number;
-  canvas_data: any;
-}
-
-interface SlideManagerProps {
-  slides: Slide[];
-  currentSlideIndex: number;
-  onSlideSelect: (index: number) => void;
-  onAddSlide: () => void;
-  onDeleteSlide: (slideId: string) => void;
-  onDuplicateSlide: (slideId: string) => void;
-}
+import { Slide, SlideManagerProps } from '@/types';
 
 const SlideManager = ({ 
   slides, 

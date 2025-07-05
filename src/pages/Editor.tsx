@@ -9,16 +9,9 @@ import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
 import DraggableWebcamPreview from '@/components/DraggableWebcamPreview';
 import FloatingRecordingSidebar from '@/components/FloatingRecordingSidebar';
 import FloatingSlidesSidebar from '@/components/FloatingSlidesSidebar';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import Footer from '@/components/Footer';
-
-interface Lesson {
-  id: string;
-  title: string;
-  user_id: string;
-  export_status: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Lesson, Slide } from '@/types';
 
 const Editor = () => {
   const { lessonId } = useParams();
@@ -30,12 +23,13 @@ const Editor = () => {
   const [canvasData, setCanvasData] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [autoSave, setAutoSave] = useState(true);
-  const [currentSlide, setCurrentSlide] = useState<any>(null);
-  const [slides, setSlides] = useState<any[]>([]);
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [currentSlide, setCurrentSlide] = useState<Slide | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
+  const [showCamera, setShowCamera] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -46,7 +40,7 @@ const Editor = () => {
     if (lessonId) {
       initializeEditor();
     }
-  }, [lessonId, user, navigate]);
+  }, [lessonId, user]);
 
   const initializeEditor = async () => {
     try {
@@ -58,9 +52,12 @@ const Editor = () => {
         .select('*')
         .eq('id', lessonId)
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
 
       if (lessonError) throw lessonError;
+      if (!lessonData) {
+        throw new Error('Lesson not found or access denied');
+      }
       
       const mappedLesson: Lesson = {
         id: lessonData.id,
@@ -293,92 +290,107 @@ const Editor = () => {
     );
   }
 
-  const [showCamera, setShowCamera] = useState(true);
-
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white/90 backdrop-blur-sm border-b border-blue-100 px-4 py-3 flex items-center justify-between shrink-0 z-40">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/dashboard')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Dashboard
-          </Button>
-          <h1 className="text-xl font-semibold">{lesson.title}</h1>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowCamera(!showCamera)}
-          >
-            {showCamera ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
-            Camera
-          </Button>
+    <ErrorBoundary>
+      <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        {/* Header */}
+        <header className="bg-white/90 backdrop-blur-sm border-b border-blue-100 px-4 py-3 flex items-center justify-between shrink-0 z-40">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+            <h1 className="text-xl font-semibold">{lesson.title}</h1>
+          </div>
           
-          <label className="flex items-center space-x-2 text-sm">
-            <input
-              type="checkbox"
-              checked={autoSave}
-              onChange={(e) => setAutoSave(e.target.checked)}
-              className="rounded"
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCamera(!showCamera)}
+            >
+              {showCamera ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
+              Camera
+            </Button>
+            
+            <label className="flex items-center space-x-2 text-sm">
+              <input
+                type="checkbox"
+                checked={autoSave}
+                onChange={(e) => setAutoSave(e.target.checked)}
+                className="rounded"
+              />
+              <span>Auto-save</span>
+            </label>
+            
+            <Button
+              onClick={saveLesson}
+              variant="outline"
+              size="sm"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
+          </div>
+        </header>
+
+        {/* Main Content - Full Screen Whiteboard */}
+        <div className="flex-1 relative">
+          <ErrorBoundary fallback={
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-lg text-gray-700 mb-4">Whiteboard failed to load</p>
+                <Button onClick={() => window.location.reload()}>Reload</Button>
+              </div>
+            </div>
+          }>
+            <InfiniteWhiteboard
+              canvasData={currentSlide?.canvas_data}
+              onChange={handleCanvasChange}
+              className="h-full w-full"
             />
-            <span>Auto-save</span>
-          </label>
+          </ErrorBoundary>
           
-          <Button
-            onClick={saveLesson}
-            variant="outline"
-            size="sm"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save
-          </Button>
+          {/* Floating Elements */}
+          <ErrorBoundary>
+            <FloatingRecordingSidebar
+              isAudioEnabled={isAudioEnabled}
+              isVideoEnabled={isVideoEnabled}
+              onAudioToggle={handleAudioToggle}
+              onVideoToggle={handleVideoToggle}
+            />
+          </ErrorBoundary>
+          
+          <ErrorBoundary>
+            <FloatingSlidesSidebar
+              slides={slides}
+              currentSlideIndex={currentSlideIndex}
+              onSlideSelect={handleSlideSelect}
+              onAddSlide={addNewSlide}
+              onDeleteSlide={deleteSlide}
+              onDuplicateSlide={duplicateSlide}
+            />
+          </ErrorBoundary>
+          
+          {/* Draggable Camera Preview */}
+          {showCamera && (
+            <ErrorBoundary>
+              <DraggableWebcamPreview
+                isEnabled={isVideoEnabled}
+                isRecording={isRecording}
+                onClose={() => setShowCamera(false)}
+              />
+            </ErrorBoundary>
+          )}
         </div>
-      </header>
 
-      {/* Main Content - Full Screen Whiteboard */}
-      <div className="flex-1 relative">
-        <InfiniteWhiteboard
-          canvasData={currentSlide?.canvas_data}
-          onChange={handleCanvasChange}
-          className="h-full w-full"
-        />
-        
-        {/* Floating Elements */}
-        <FloatingRecordingSidebar
-          isAudioEnabled={isAudioEnabled}
-          isVideoEnabled={isVideoEnabled}
-          onAudioToggle={handleAudioToggle}
-          onVideoToggle={handleVideoToggle}
-        />
-        
-        <FloatingSlidesSidebar
-          slides={slides}
-          currentSlideIndex={currentSlideIndex}
-          onSlideSelect={handleSlideSelect}
-          onAddSlide={addNewSlide}
-          onDeleteSlide={deleteSlide}
-          onDuplicateSlide={duplicateSlide}
-        />
-        
-        {/* Draggable Camera Preview */}
-        {showCamera && (
-          <DraggableWebcamPreview
-            isEnabled={isVideoEnabled}
-            isRecording={isRecording}
-            onClose={() => setShowCamera(false)}
-          />
-        )}
+        <Footer />
       </div>
-
-      <Footer />
-    </div>
+    </ErrorBoundary>
   );
 };
 

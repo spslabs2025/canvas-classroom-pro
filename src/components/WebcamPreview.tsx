@@ -2,28 +2,12 @@
 import { useRef, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, VideoOff } from 'lucide-react';
-
-interface WebcamPreviewProps {
-  isEnabled: boolean;
-  isRecording: boolean;
-}
+import { WebcamPreviewProps } from '@/types';
 
 const WebcamPreview = ({ isEnabled, isRecording }: WebcamPreviewProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string>('');
-
-  useEffect(() => {
-    if (isEnabled) {
-      startWebcam();
-    } else {
-      stopWebcam();
-    }
-
-    return () => {
-      stopWebcam();
-    };
-  }, [isEnabled]);
 
   const startWebcam = async () => {
     try {
@@ -56,6 +40,19 @@ const WebcamPreview = ({ isEnabled, isRecording }: WebcamPreviewProps) => {
       videoRef.current.srcObject = null;
     }
   };
+
+  useEffect(() => {
+    if (isEnabled) {
+      startWebcam();
+    } else {
+      stopWebcam();
+    }
+
+    return () => {
+      stopWebcam();
+    };
+  }, [isEnabled]);
+
 
   return (
     <Card className="h-full bg-gradient-to-b from-gray-900 to-black border-gray-700">
