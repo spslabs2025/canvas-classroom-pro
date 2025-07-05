@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarTrigger } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, Save, Settings } from 'lucide-react';
@@ -295,94 +296,111 @@ const Editor = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white/90 backdrop-blur-sm border-b border-blue-100 px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/dashboard')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Dashboard
-          </Button>
-          <h1 className="text-xl font-semibold">{lesson.title}</h1>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <label className="flex items-center space-x-2 text-sm">
-            <input
-              type="checkbox"
-              checked={autoSave}
-              onChange={(e) => setAutoSave(e.target.checked)}
-              className="rounded"
-            />
-            <span>Auto-save</span>
-          </label>
+    <SidebarProvider>
+      <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 w-full">
+        {/* Header */}
+        <header className="bg-white/90 backdrop-blur-sm border-b border-blue-100 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center space-x-4">
+            <SidebarTrigger className="mr-2" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+            <h1 className="text-xl font-semibold">{lesson.title}</h1>
+          </div>
           
-          <Button
-            onClick={saveLesson}
-            variant="outline"
-            size="sm"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Content - Three Panel Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Recording Controls */}
-        <RecordingSidebar
-          isAudioEnabled={isAudioEnabled}
-          isVideoEnabled={isVideoEnabled}
-          onAudioToggle={handleAudioToggle}
-          onVideoToggle={handleVideoToggle}
-        />
-        
-        {/* Center Content - Split Layout */}
-        <div className="flex-1 overflow-hidden">
-          <ResizablePanelGroup direction="horizontal">
-            {/* Camera Panel (40%) */}
-            <ResizablePanel defaultSize={40} minSize={25} maxSize={55}>
-              <div className="h-full p-4 bg-white/50">
-                <WebcamPreview
-                  isEnabled={isVideoEnabled}
-                  isRecording={isRecording}
-                />
-              </div>
-            </ResizablePanel>
+          <div className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 text-sm">
+              <input
+                type="checkbox"
+                checked={autoSave}
+                onChange={(e) => setAutoSave(e.target.checked)}
+                className="rounded"
+              />
+              <span>Auto-save</span>
+            </label>
             
-            <ResizableHandle withHandle />
-            
-            {/* Whiteboard Panel (60%) */}
-            <ResizablePanel defaultSize={60} minSize={45} maxSize={75}>
-              <div className="h-full bg-white">
-                <InfiniteWhiteboard
-                  canvasData={currentSlide?.canvas_data}
-                  onChange={handleCanvasChange}
-                  className="h-full"
-                />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+            <Button
+              onClick={saveLesson}
+              variant="outline"
+              size="sm"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden w-full">
+          {/* Left Sidebar - Recording Controls */}
+          <Sidebar side="left" className="border-r">
+            <SidebarHeader className="p-4 border-b">
+              <h2 className="text-lg font-semibold">Recording Studio</h2>
+            </SidebarHeader>
+            <SidebarContent className="p-4">
+              <RecordingSidebar
+                isAudioEnabled={isAudioEnabled}
+                isVideoEnabled={isVideoEnabled}
+                onAudioToggle={handleAudioToggle}
+                onVideoToggle={handleVideoToggle}
+              />
+            </SidebarContent>
+          </Sidebar>
+          
+          {/* Center Content - Split Layout */}
+          <div className="flex-1 overflow-hidden">
+            <ResizablePanelGroup direction="horizontal">
+              {/* Camera Panel (40%) */}
+              <ResizablePanel defaultSize={40} minSize={25} maxSize={55}>
+                <div className="h-full p-4 bg-white/50">
+                  <WebcamPreview
+                    isEnabled={isVideoEnabled}
+                    isRecording={isRecording}
+                  />
+                </div>
+              </ResizablePanel>
+              
+              <ResizableHandle withHandle />
+              
+              {/* Whiteboard Panel (60%) */}
+              <ResizablePanel defaultSize={60} minSize={45} maxSize={75}>
+                <div className="h-full bg-white">
+                  <InfiniteWhiteboard
+                    canvasData={currentSlide?.canvas_data}
+                    onChange={handleCanvasChange}
+                    className="h-full"
+                  />
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
+
+          {/* Right Sidebar - Slides */}
+          <Sidebar side="right" className="border-l">
+            <SidebarHeader className="p-4 border-b">
+              <h2 className="text-lg font-semibold">Slides & Tools</h2>
+            </SidebarHeader>
+            <SidebarContent className="p-4">
+              <SlidesSidebar
+                slides={slides}
+                currentSlideIndex={currentSlideIndex}
+                onSlideSelect={handleSlideSelect}
+                onAddSlide={addNewSlide}
+                onDeleteSlide={deleteSlide}
+                onDuplicateSlide={duplicateSlide}
+              />
+            </SidebarContent>
+          </Sidebar>
         </div>
 
-        {/* Right Sidebar - Slides */}
-        <SlidesSidebar
-          slides={slides}
-          currentSlideIndex={currentSlideIndex}
-          onSlideSelect={handleSlideSelect}
-          onAddSlide={addNewSlide}
-          onDeleteSlide={deleteSlide}
-          onDuplicateSlide={duplicateSlide}
-        />
+        <Footer />
       </div>
-
-      <Footer />
-    </div>
+    </SidebarProvider>
   );
 };
 
