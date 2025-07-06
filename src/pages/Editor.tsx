@@ -9,8 +9,6 @@ import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
 import DraggableWebcamPreview from '@/components/DraggableWebcamPreview';
 import FloatingRecordingSidebar from '@/components/FloatingRecordingSidebar';
 import FloatingSlidesSidebar from '@/components/FloatingSlidesSidebar';
-import RecordingSidebar from '@/components/RecordingSidebar';
-import SlidesSidebar from '@/components/SlidesSidebar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Footer from '@/components/Footer';
 import { Lesson, Slide } from '@/types';
@@ -340,48 +338,22 @@ const Editor = () => {
           </div>
         </header>
 
-        {/* Main Content with Sidebars */}
-        <div className="flex-1 flex">
-          {/* Left Sidebar - Recording Controls */}
-          <div className="w-80 bg-white/90 backdrop-blur-sm border-r border-blue-100 p-4 overflow-y-auto">
-            <RecordingSidebar
-              isAudioEnabled={isAudioEnabled}
-              isVideoEnabled={isVideoEnabled}
-              onAudioToggle={handleAudioToggle}
-              onVideoToggle={handleVideoToggle}
-            />
-          </div>
-
-          {/* Main Whiteboard Area */}
-          <div className="flex-1 relative">
-            <ErrorBoundary fallback={
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-lg text-gray-700 mb-4">Whiteboard failed to load</p>
-                  <Button onClick={() => window.location.reload()}>Reload</Button>
-                </div>
+        {/* Main Content - Full Screen Whiteboard */}
+        <div className="flex-1 relative">
+          <ErrorBoundary fallback={
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-lg text-gray-700 mb-4">Whiteboard failed to load</p>
+                <Button onClick={() => window.location.reload()}>Reload</Button>
               </div>
-            }>
-              <InfiniteWhiteboard
-                canvasData={currentSlide?.canvas_data}
-                onChange={handleCanvasChange}
-                className="h-full w-full"
-              />
-            </ErrorBoundary>
-          </div>
-
-          {/* Right Sidebar - Slides Controls */}
-          <div className="w-80 bg-white/90 backdrop-blur-sm border-l border-blue-100 p-4 overflow-y-auto">
-            <SlidesSidebar
-              slides={slides}
-              currentSlideIndex={currentSlideIndex}
-              onSlideSelect={handleSlideSelect}
-              onAddSlide={addNewSlide}
-              onDeleteSlide={deleteSlide}
-              onDuplicateSlide={duplicateSlide}
+            </div>
+          }>
+            <InfiniteWhiteboard
+              canvasData={currentSlide?.canvas_data}
+              onChange={handleCanvasChange}
+              className="h-full w-full"
             />
-          </div>
-        </div>
+          </ErrorBoundary>
           
           {/* Floating Elements */}
           <ErrorBoundary>
@@ -403,7 +375,8 @@ const Editor = () => {
               onDuplicateSlide={duplicateSlide}
             />
           </ErrorBoundary>
-          
+        </div>
+        
         {/* Draggable Camera Preview */}
         {showCamera && (
           <ErrorBoundary>
