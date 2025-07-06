@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Save, Settings, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Save, Settings, Eye, EyeOff, PenTool } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
 import DraggableWebcamPreview from '@/components/DraggableWebcamPreview';
 import FloatingRecordingSidebar from '@/components/FloatingRecordingSidebar';
 import FloatingSlidesSidebar from '@/components/FloatingSlidesSidebar';
+import WhiteboardToolsDropdown from '@/components/WhiteboardToolsDropdown';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import Footer from '@/components/Footer';
 import { Lesson, Slide } from '@/types';
@@ -308,6 +309,17 @@ const Editor = () => {
           </div>
           
           <div className="flex items-center space-x-2">
+            <WhiteboardToolsDropdown 
+              onToolSelect={(tool, options) => {
+                // Handle tool selection here - you can integrate with whiteboard
+                console.log('Tool selected:', tool, options);
+                toast({
+                  title: "Tool Selected",
+                  description: `${tool} tool is now active`,
+                });
+              }}
+            />
+            
             <Button
               variant="ghost"
               size="sm"
