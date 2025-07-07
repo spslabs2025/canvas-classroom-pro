@@ -36,17 +36,44 @@ import {
 
 interface WhiteboardToolsDropdownProps {
   onToolSelect?: (tool: string, options?: any) => void;
+  onBrushSizeChange?: (size: number) => void;
+  onColorChange?: (color: string) => void;
+  currentTool?: string;
+  currentBrushSize?: number;
+  currentColor?: string;
 }
 
-const WhiteboardToolsDropdown = ({ onToolSelect }: WhiteboardToolsDropdownProps) => {
+const WhiteboardToolsDropdown = ({ 
+  onToolSelect, 
+  onBrushSizeChange, 
+  onColorChange, 
+  currentTool = 'pen',
+  currentBrushSize = 3,
+  currentColor = '#000000'
+}: WhiteboardToolsDropdownProps) => {
   const colors = [
-    '#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', 
-    '#FF00FF', '#00FFFF', '#FFA500', '#800080', '#FFC0CB'
+    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', 
+    '#FF00FF', '#00FFFF', '#FFA500', '#800080', '#FFC0CB', '#A52A2A',
+    '#808080', '#87CEEB', '#DDA0DD'
   ];
+
+  const brushSizes = [1, 2, 3, 5, 8, 12, 16, 20, 25, 30];
 
   const handleToolClick = (tool: string, options?: any) => {
     if (onToolSelect) {
       onToolSelect(tool, options);
+    }
+  };
+
+  const handleColorSelect = (color: string) => {
+    if (onColorChange) {
+      onColorChange(color);
+    }
+  };
+
+  const handleBrushSizeSelect = (size: number) => {
+    if (onBrushSizeChange) {
+      onBrushSizeChange(size);
     }
   };
 
@@ -123,6 +150,33 @@ const WhiteboardToolsDropdown = ({ onToolSelect }: WhiteboardToolsDropdownProps)
         
         <DropdownMenuSeparator />
         
+        {/* Brush Size */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="cursor-pointer">
+            <Settings className="h-4 w-4 mr-2" />
+            Thickness ({currentBrushSize}px)
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="bg-white border shadow-lg">
+            <div className="grid grid-cols-5 gap-1 p-2">
+              {brushSizes.map((size) => (
+                <button
+                  key={size}
+                  className={`w-8 h-8 rounded border-2 flex items-center justify-center text-xs ${
+                    currentBrushSize === size 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300 hover:border-gray-500'
+                  } transition-colors`}
+                  onClick={() => handleBrushSizeSelect(size)}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        <DropdownMenuSeparator />
+
         {/* Colors */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="cursor-pointer">
@@ -134,9 +188,13 @@ const WhiteboardToolsDropdown = ({ onToolSelect }: WhiteboardToolsDropdownProps)
               {colors.map((color) => (
                 <button
                   key={color}
-                  className="w-6 h-6 rounded border-2 border-gray-300 hover:border-gray-500 transition-colors"
+                  className={`w-6 h-6 rounded border-2 ${
+                    currentColor === color 
+                      ? 'border-blue-500 ring-2 ring-blue-300' 
+                      : 'border-gray-300 hover:border-gray-500'
+                  } transition-colors`}
                   style={{ backgroundColor: color }}
-                  onClick={() => handleToolClick('color', { color })}
+                  onClick={() => handleColorSelect(color)}
                 />
               ))}
             </div>

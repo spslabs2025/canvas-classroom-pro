@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,11 @@ const Editor = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [showCamera, setShowCamera] = useState(true);
+  
+  // Whiteboard state
+  const [selectedTool, setSelectedTool] = useState('pen');
+  const [brushSize, setBrushSize] = useState(3);
+  const [brushColor, setBrushColor] = useState('#000000');
 
   useEffect(() => {
     if (!user) {
@@ -266,6 +271,57 @@ const Editor = () => {
     }
   };
 
+  // Whiteboard tool handlers
+  const whiteboardRef = useRef<any>(null);
+  
+  const handleToolSelect = (tool: string, options?: any) => {
+    if (tool === 'text') {
+      // Call addText function on whiteboard
+      whiteboardRef.current?.addText();
+    } else if (tool === 'rectangle') {
+      whiteboardRef.current?.addShape('rectangle');
+    } else if (tool === 'circle') {
+      whiteboardRef.current?.addShape('circle');
+    } else if (tool === 'triangle') {
+      whiteboardRef.current?.addShape('triangle');
+    } else if (tool === 'line') {
+      whiteboardRef.current?.addShape('line');
+    } else if (tool === 'upload-image' || tool === 'upload-pdf') {
+      whiteboardRef.current?.triggerFileUpload();
+    } else if (tool === 'download') {
+      whiteboardRef.current?.exportCanvas('png');
+    } else if (tool === 'zoom-in') {
+      whiteboardRef.current?.setZoom(Math.min(5, whiteboardRef.current?.zoom + 0.2));
+    } else if (tool === 'zoom-out') {
+      whiteboardRef.current?.setZoom(Math.max(0.1, whiteboardRef.current?.zoom - 0.2));
+    } else if (tool === 'grid') {
+      // Toggle grid functionality
+      toast({
+        title: "Grid Toggle",
+        description: "Grid functionality coming soon",
+      });
+    } else {
+      setSelectedTool(tool);
+    }
+    
+    if (options?.color) {
+      setBrushColor(options.color);
+    }
+    
+    toast({
+      title: "Tool Selected",
+      description: `${tool.charAt(0).toUpperCase() + tool.slice(1)} tool is now active`,
+    });
+  };
+
+  const handleBrushSizeChange = (size: number) => {
+    setBrushSize(size);
+  };
+
+  const handleColorChange = (color: string) => {
+    setBrushColor(color);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -310,14 +366,12 @@ const Editor = () => {
           
           <div className="flex items-center space-x-2">
             <WhiteboardToolsDropdown 
-              onToolSelect={(tool, options) => {
-                // Handle tool selection here - you can integrate with whiteboard
-                console.log('Tool selected:', tool, options);
-                toast({
-                  title: "Tool Selected",
-                  description: `${tool} tool is now active`,
-                });
-              }}
+              onToolSelect={handleToolSelect}
+              onBrushSizeChange={handleBrushSizeChange}
+              onColorChange={handleColorChange}
+              currentTool={selectedTool}
+              currentBrushSize={brushSize}
+              currentColor={brushColor}
             />
             
             <Button
@@ -361,9 +415,13 @@ const Editor = () => {
             </div>
           }>
             <InfiniteWhiteboard
+              ref={whiteboardRef}
               canvasData={currentSlide?.canvas_data}
               onChange={handleCanvasChange}
               className="h-full w-full"
+              selectedTool={selectedTool}
+              brushSize={brushSize}
+              brushColor={brushColor}
             />
           </ErrorBoundary>
           

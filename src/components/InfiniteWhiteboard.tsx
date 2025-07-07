@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -35,9 +35,20 @@ interface InfiniteWhiteboardProps {
   onChange?: (canvasData: any) => void;
   isCollaborative?: boolean;
   className?: string;
+  selectedTool?: string;
+  brushSize?: number;
+  brushColor?: string;
 }
 
-const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, className }: InfiniteWhiteboardProps) => {
+const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({ 
+  canvasData, 
+  onChange, 
+  isCollaborative = false, 
+  className,
+  selectedTool: externalSelectedTool,
+  brushSize: externalBrushSize,
+  brushColor: externalBrushColor
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -257,6 +268,25 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
   useEffect(() => {
     updateCanvasState();
   }, [updateCanvasState]);
+
+  // Sync with external props
+  useEffect(() => {
+    if (externalSelectedTool && externalSelectedTool !== selectedTool) {
+      setSelectedTool(externalSelectedTool as any);
+    }
+  }, [externalSelectedTool]);
+
+  useEffect(() => {
+    if (externalBrushSize && externalBrushSize !== brushSize) {
+      setBrushSize(externalBrushSize);
+    }
+  }, [externalBrushSize]);
+
+  useEffect(() => {
+    if (externalBrushColor && externalBrushColor !== brushColor) {
+      setBrushColor(externalBrushColor);
+    }
+  }, [externalBrushColor]);
 
   const handleCanvasChange = useCallback(() => {
     if (fabricCanvasRef.current && onChange) {
@@ -554,6 +584,19 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
 
   const brushSizes = [1, 2, 3, 5, 8, 12, 16, 20, 25, 30];
 
+  // Expose functions to parent component via ref
+  useImperativeHandle(ref, () => ({
+    addText,
+    addShape,
+    triggerFileUpload,
+    exportCanvas,
+    setZoom,
+    zoom,
+    undo,
+    redo,
+    clearCanvas
+  }), [addText, addShape, triggerFileUpload, exportCanvas, zoom, undo, redo, clearCanvas]);
+
   return (
     <div className={`h-full flex ${className || ''}`} ref={containerRef}>
       {/* Hidden file input */}
@@ -802,6 +845,8 @@ const InfiniteWhiteboard = ({ canvasData, onChange, isCollaborative = false, cla
       </Sheet>
     </div>
   );
-};
+});
+
+InfiniteWhiteboard.displayName = 'InfiniteWhiteboard';
 
 export default InfiniteWhiteboard;
