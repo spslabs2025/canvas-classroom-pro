@@ -13,6 +13,9 @@ import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import Upgrade from "./pages/Upgrade";
 import AboutUs from "./pages/AboutUs";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import EULA from "./pages/EULA";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +36,9 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/upgrade" element={<Upgrade />} />
             <Route path="/about" element={<AboutUs />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/eula" element={<EULA />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

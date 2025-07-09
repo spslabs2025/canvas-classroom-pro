@@ -685,10 +685,10 @@ const Settings = () => {
                 Data & Privacy
               </CardTitle>
               <CardDescription>
-                Your data is secure and encrypted
+                Manage your privacy preferences and data rights
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                 <div>
                   <p className="font-medium text-gray-900">Account Created</p>
@@ -699,15 +699,54 @@ const Settings = () => {
                   <p>{userProfile?.trial_start ? new Date(userProfile.trial_start).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </div>
-              
+
+              {/* Consent Options */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900">Consent Preferences</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Analytics and Performance</p>
+                      <p className="text-sm text-gray-600">Help us improve the platform with anonymous usage data</p>
+                    </div>
+                    <Button variant="outline" size="sm">Manage</Button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Marketing Communications</p>
+                      <p className="text-sm text-gray-600">Receive updates about new features and offers</p>
+                    </div>
+                    <Button variant="outline" size="sm">Manage</Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Rights */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900">Your Data Rights</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Button variant="outline" className="h-auto p-4 flex flex-col items-start">
+                    <span className="font-medium">Export My Data</span>
+                    <span className="text-sm text-gray-600 mt-1">Download all your account data</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto p-4 flex flex-col items-start">
+                    <span className="font-medium">Data Correction</span>
+                    <span className="text-sm text-gray-600 mt-1">Request correction of your data</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Security Disclosure */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-start space-x-3">
                   <Shield className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-green-900">Your data is protected</h4>
+                    <h4 className="font-medium text-green-900">Security & Encryption</h4>
                     <p className="text-sm text-green-700 mt-1">
-                      All your lessons, recordings, and personal data are encrypted and stored securely. 
-                      We never share your data with third parties.
+                      • All data transmitted using TLS 1.3 encryption<br/>
+                      • Files encrypted at rest using AES-256<br/>
+                      • Regular security audits and compliance monitoring<br/>
+                      • Zero-knowledge architecture for sensitive content
                     </p>
                   </div>
                 </div>
