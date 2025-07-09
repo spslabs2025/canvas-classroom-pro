@@ -76,7 +76,7 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
         const containerRect = containerRef.current.getBoundingClientRect();
         
         const canvas = new FabricCanvas(canvasRef.current, {
-          width: containerRect.width - 400, // Account for toolbar space
+          width: containerRect.width,
           height: containerRect.height,
           backgroundColor: 'white',
           selection: true,
@@ -213,7 +213,7 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
         const containerRect = containerRef.current.getBoundingClientRect();
         const canvas = fabricCanvasRef.current;
         canvas.setDimensions({
-          width: containerRect.width - 400,
+          width: containerRect.width,
           height: containerRect.height
         });
         canvas.renderAll();
@@ -269,21 +269,21 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
     updateCanvasState();
   }, [updateCanvasState]);
 
-  // Sync with external props
+  // Sync with external props - prioritize external props
   useEffect(() => {
-    if (externalSelectedTool && externalSelectedTool !== selectedTool) {
+    if (externalSelectedTool) {
       setSelectedTool(externalSelectedTool as any);
     }
   }, [externalSelectedTool]);
 
   useEffect(() => {
-    if (externalBrushSize && externalBrushSize !== brushSize) {
+    if (externalBrushSize !== undefined) {
       setBrushSize(externalBrushSize);
     }
   }, [externalBrushSize]);
 
   useEffect(() => {
-    if (externalBrushColor && externalBrushColor !== brushColor) {
+    if (externalBrushColor) {
       setBrushColor(externalBrushColor);
     }
   }, [externalBrushColor]);
