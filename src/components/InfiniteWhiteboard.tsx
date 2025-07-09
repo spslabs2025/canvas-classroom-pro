@@ -1,73 +1,73 @@
-import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { Canvas as FabricCanvas, Circle, Rect, Triangle, Line, Textbox, FabricImage, Point } from 'fabric';
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
+  MousePointer, 
   Pen, 
   Eraser, 
+  Square, 
+  Circle as CircleIcon, 
+  Triangle as TriangleIcon, 
+  Minus, 
   Type, 
-  Undo, 
-  Redo, 
-  Upload, 
-  Download,
-  Square,
-  Circle,
-  Minus,
-  Plus,
-  Move,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Palette,
-  Settings,
-  Layers,
-  Grid3X3,
-  MousePointer,
-  Menu,
-  Triangle
+  Image, 
+  FileText, 
+  ZoomIn, 
+  ZoomOut, 
+  Grid3X3, 
+  Download, 
+  Undo,
+  Redo,
+  Trash2
 } from 'lucide-react';
-import { Canvas as FabricCanvas, FabricText, FabricImage, Rect, Circle as FabricCircle, Polygon, Point } from 'fabric';
-import { useToast } from "@/hooks/use-toast";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from 'sonner';
 
 interface InfiniteWhiteboardProps {
+  onCanvasChange?: (data: any) => void;
   canvasData?: any;
-  onChange?: (canvasData: any) => void;
-  isCollaborative?: boolean;
-  className?: string;
   selectedTool?: string;
   brushSize?: number;
   brushColor?: string;
+  onToolChange?: (tool: string) => void;
+  onBrushSizeChange?: (size: number) => void;
+  onBrushColorChange?: (color: string) => void;
+  className?: string;
 }
 
-const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({ 
-  canvasData, 
-  onChange, 
-  isCollaborative = false, 
-  className,
+const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
+  onCanvasChange,
+  canvasData,
   selectedTool: externalSelectedTool,
   brushSize: externalBrushSize,
-  brushColor: externalBrushColor
+  brushColor: externalBrushColor,
+  onToolChange,
+  onBrushSizeChange,
+  onBrushColorChange,
+  className
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+  const fabricCanvasRef = useRef<FabricCanvas | null>(null);
   
-  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'text' | 'rectangle' | 'circle' | 'triangle' | 'line' | 'pan'>('pen');
+  // Internal state
+  const [selectedTool, setSelectedTool] = useState<'select' | 'pen' | 'eraser' | 'rectangle' | 'circle' | 'triangle' | 'line' | 'text'>('pen');
+  const [brushSize, setBrushSize] = useState(5);
   const [brushColor, setBrushColor] = useState('#000000');
-  const [brushSize, setBrushSize] = useState(3);
-  const [zoom, setZoom] = useState(1);
-  const [history, setHistory] = useState<any[]>([]);
+  const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showGrid, setShowGrid] = useState(false);
-  const [snapToGrid, setSnapToGrid] = useState(false);
-  
-  // Collapsible states
-  const [toolsOpen, setToolsOpen] = useState(true);
-  const [colorsOpen, setColorsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => fabricCanvasRef.current,
+    exportCanvas,
+    clearCanvas
+  }));
 
   // Initialize canvas with proper settings for drawing
   useEffect(() => {
@@ -79,31 +79,22 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
           width: containerRect.width,
           height: containerRect.height,
           backgroundColor: 'white',
-          selection: true,
+          selection: false, // Start with drawing mode
           enableRetinaScaling: true,
-          allowTouchScrolling: true,
           renderOnAddRemove: true,
           preserveObjectStacking: true
         });
 
         fabricCanvasRef.current = canvas;
 
-        // Optimize for drawing performance
-        canvas.isDrawingMode = true;
+        // Set initial drawing mode
+        canvas.isDrawingMode = selectedTool === 'pen';
+        
+        // Initialize brush properly for Fabric.js v6
         if (canvas.freeDrawingBrush) {
           canvas.freeDrawingBrush.width = brushSize;
           canvas.freeDrawingBrush.color = brushColor;
-          canvas.freeDrawingBrush.strokeLineCap = 'round';
-          canvas.freeDrawingBrush.strokeLineJoin = 'round';
         }
-
-        // Enhanced touch and pen tablet support
-        canvas.on('mouse:down', function(opt) {
-          if (opt.e.type === 'touchstart' || opt.e.type === 'pointerdown') {
-            // Prevent default touch behaviors that might interfere with drawing
-            opt.e.preventDefault();
-          }
-        });
 
         // Add event listeners for changes
         canvas.on('path:created', handleCanvasChange);
@@ -113,88 +104,23 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
 
         // Add zoom and pan support
         canvas.on('mouse:wheel', handleWheel);
-        
-        // Pan functionality with Alt key or pan tool
-        let isDragging = false;
-        let lastPosX = 0;
-        let lastPosY = 0;
-
-        canvas.on('mouse:down', function(opt) {
-          const evt = opt.e as MouseEvent | TouchEvent;
-          let clientX = 0;
-          let clientY = 0;
-          
-          if (evt instanceof MouseEvent) {
-            clientX = evt.clientX;
-            clientY = evt.clientY;
-          } else if (evt instanceof TouchEvent && evt.touches.length > 0) {
-            clientX = evt.touches[0].clientX;
-            clientY = evt.touches[0].clientY;
-          }
-          
-          const hasAltKey = evt instanceof MouseEvent && evt.altKey;
-          
-          if (hasAltKey || selectedTool === 'pan') {
-            isDragging = true;
-            canvas.selection = false;
-            canvas.isDrawingMode = false;
-            lastPosX = clientX;
-            lastPosY = clientY;
-          }
-        });
-
-        canvas.on('mouse:move', function(opt) {
-          if (isDragging) {
-            const evt = opt.e as MouseEvent | TouchEvent;
-            let clientX = 0;
-            let clientY = 0;
-            
-            if (evt instanceof MouseEvent) {
-              clientX = evt.clientX;
-              clientY = evt.clientY;
-            } else if (evt instanceof TouchEvent && evt.touches.length > 0) {
-              clientX = evt.touches[0].clientX;
-              clientY = evt.touches[0].clientY;
-            }
-            
-            const vpt = canvas.viewportTransform;
-            if (vpt) {
-              vpt[4] += clientX - lastPosX;
-              vpt[5] += clientY - lastPosY;
-              canvas.requestRenderAll();
-              lastPosX = clientX;
-              lastPosY = clientY;
-            }
-          }
-        });
-
-        canvas.on('mouse:up', function() {
-          canvas.setViewportTransform(canvas.viewportTransform);
-          isDragging = false;
-          updateCanvasState();
-        });
 
         // Load existing canvas data if provided
         if (canvasData && Object.keys(canvasData).length > 0) {
-          canvas.loadFromJSON(canvasData).then(() => {
-            canvas.renderAll();
-          }).catch((error) => {
+          try {
+            canvas.loadFromJSON(canvasData, () => {
+              canvas.renderAll();
+            });
+          } catch (error) {
             console.error('Error loading canvas data:', error);
-          });
+          }
         }
 
-        // Add initial state to history
-        const initialState = canvas.toJSON();
-        setHistory([initialState]);
-        setHistoryIndex(0);
+        console.log('Canvas initialized successfully with tool:', selectedTool);
+        saveToHistory();
 
       } catch (error) {
         console.error('Error initializing canvas:', error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize whiteboard",
-          variant: "destructive"
-        });
       }
     }
 
@@ -206,10 +132,10 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
     };
   }, []);
 
-  // Handle window resize to maintain proper canvas dimensions
+  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
-      if (fabricCanvasRef.current && containerRef.current) {
+      if (containerRef.current && fabricCanvasRef.current) {
         const containerRect = containerRef.current.getBoundingClientRect();
         const canvas = fabricCanvasRef.current;
         canvas.setDimensions({
@@ -224,625 +150,534 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Update canvas state based on selected tool
-  const updateCanvasState = useCallback(() => {
-    if (!fabricCanvasRef.current) return;
-    
-    const canvas = fabricCanvasRef.current;
-    
-    // Reset canvas modes
-    canvas.selection = selectedTool === 'select';
-    canvas.isDrawingMode = selectedTool === 'pen' || selectedTool === 'eraser';
-    
-    // Configure drawing brush
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.width = brushSize;
-      canvas.freeDrawingBrush.strokeLineCap = 'round';
-      canvas.freeDrawingBrush.strokeLineJoin = 'round';
-      if (selectedTool === 'eraser') {
-        canvas.freeDrawingBrush.color = 'white';
-      } else {
-        canvas.freeDrawingBrush.color = brushColor;
-      }
-    }
-    
-    // Set cursor based on tool
-    if (selectedTool === 'pen') {
-      canvas.defaultCursor = 'crosshair';
-      canvas.hoverCursor = 'crosshair';
-    } else if (selectedTool === 'eraser') {
-      canvas.defaultCursor = 'crosshair';
-      canvas.hoverCursor = 'crosshair';
-    } else if (selectedTool === 'pan') {
-      canvas.defaultCursor = 'grab';
-      canvas.hoverCursor = 'grab';
-    } else {
-      canvas.defaultCursor = 'default';
-      canvas.hoverCursor = 'move';
-    }
-    
-    canvas.renderAll();
-  }, [selectedTool, brushColor, brushSize]);
-
-  // Call updateCanvasState when tool or canvas changes
+  // Handle tool changes
   useEffect(() => {
-    updateCanvasState();
-  }, [updateCanvasState]);
-
-  // Sync with external props - prioritize external props
-  useEffect(() => {
-    if (externalSelectedTool) {
-      setSelectedTool(externalSelectedTool as any);
-    }
-  }, [externalSelectedTool]);
-
-  useEffect(() => {
-    if (externalBrushSize !== undefined) {
-      setBrushSize(externalBrushSize);
-    }
-  }, [externalBrushSize]);
-
-  useEffect(() => {
-    if (externalBrushColor) {
-      setBrushColor(externalBrushColor);
-    }
-  }, [externalBrushColor]);
-
-  const handleCanvasChange = useCallback(() => {
-    if (fabricCanvasRef.current && onChange) {
-      try {
-        const canvasJson = fabricCanvasRef.current.toJSON();
-        onChange(canvasJson);
-        
-        // Update history
-        setHistory(prev => {
-          const newHistory = [...prev.slice(0, historyIndex + 1), canvasJson];
-          return newHistory.slice(-50); // Keep last 50 states
-        });
-        setHistoryIndex(prev => Math.min(prev + 1, 49));
-        
-      } catch (error) {
-        console.error('Error handling canvas change:', error);
-      }
-    }
-  }, [onChange, historyIndex]);
-
-  const handleWheel = (opt: any) => {
-    const delta = opt.e.deltaY;
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    let newZoom = canvas.getZoom();
-    newZoom *= 0.999 ** delta;
+    console.log('Tool changed to:', selectedTool);
+
+    switch(selectedTool) {
+      case 'select':
+        canvas.isDrawingMode = false;
+        canvas.selection = true;
+        canvas.defaultCursor = 'default';
+        canvas.hoverCursor = 'move';
+        break;
+      case 'pen':
+        canvas.isDrawingMode = true;
+        canvas.selection = false;
+        if (canvas.freeDrawingBrush) {
+          canvas.freeDrawingBrush.width = brushSize;
+          canvas.freeDrawingBrush.color = brushColor;
+        }
+        canvas.defaultCursor = 'crosshair';
+        console.log('Pen mode enabled, brush width:', brushSize, 'color:', brushColor);
+        break;
+      case 'eraser':
+        canvas.isDrawingMode = true;
+        canvas.selection = false;
+        if (canvas.freeDrawingBrush) {
+          canvas.freeDrawingBrush.width = brushSize * 2;
+          canvas.freeDrawingBrush.color = 'white'; // Eraser color
+        }
+        canvas.defaultCursor = 'crosshair';
+        break;
+      default:
+        canvas.isDrawingMode = false;
+        canvas.selection = true;
+        canvas.defaultCursor = 'crosshair';
+        break;
+    }
+
+    canvas.renderAll();
+  }, [selectedTool, brushSize, brushColor]);
+
+  const handleCanvasChange = useCallback(() => {
+    if (fabricCanvasRef.current && onCanvasChange) {
+      const json = fabricCanvasRef.current.toJSON();
+      onCanvasChange(json);
+      saveToHistory();
+    }
+  }, [onCanvasChange]);
+
+  const saveToHistory = () => {
+    if (fabricCanvasRef.current) {
+      const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+      setCanvasHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(json);
+        return newHistory.slice(-20); // Keep last 20 states
+      });
+      setHistoryIndex(prev => Math.min(prev + 1, 19));
+    }
+  };
+
+  const handleWheel = (opt: any) => {
+    const delta = opt.e.deltaY;
+    let zoom = fabricCanvasRef.current?.getZoom() || 1;
+    zoom *= 0.999 ** delta;
+    if (zoom > 20) zoom = 20;
+    if (zoom < 0.01) zoom = 0.01;
     
-    if (newZoom > 20) newZoom = 20;
-    if (newZoom < 0.01) newZoom = 0.01;
-    
-    const point = new Point(opt.e.offsetX, opt.e.offsetY);
-    canvas.zoomToPoint(point, newZoom);
-    setZoom(newZoom);
-    
+    if (fabricCanvasRef.current) {
+      const point = new Point(opt.e.offsetX, opt.e.offsetY);
+      fabricCanvasRef.current.zoomToPoint(point, zoom);
+      setZoom(zoom);
+    }
     opt.e.preventDefault();
     opt.e.stopPropagation();
   };
 
-  const addShape = (shapeType: 'rectangle' | 'circle' | 'triangle' | 'line') => {
-    if (!fabricCanvasRef.current) return;
-    
-    try {
-      let shape;
-      
-      if (shapeType === 'rectangle') {
+  // Sync with external props - prioritize external props and log changes
+  useEffect(() => {
+    if (externalSelectedTool && externalSelectedTool !== selectedTool) {
+      console.log('External tool change:', externalSelectedTool);
+      setSelectedTool(externalSelectedTool as any);
+    }
+  }, [externalSelectedTool, selectedTool]);
+
+  useEffect(() => {
+    if (externalBrushSize !== undefined && externalBrushSize !== brushSize) {
+      console.log('External brush size change:', externalBrushSize);
+      setBrushSize(externalBrushSize);
+    }
+  }, [externalBrushSize, brushSize]);
+
+  useEffect(() => {
+    if (externalBrushColor && externalBrushColor !== brushColor) {
+      console.log('External brush color change:', externalBrushColor);
+      setBrushColor(externalBrushColor);
+    }
+  }, [externalBrushColor, brushColor]);
+
+  // Update brush settings when they change
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    if (canvas.isDrawingMode && canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.width = brushSize;
+      canvas.freeDrawingBrush.color = selectedTool === 'eraser' ? 'white' : brushColor;
+      console.log('Brush updated - width:', brushSize, 'color:', brushColor, 'tool:', selectedTool);
+    }
+  }, [brushSize, brushColor, selectedTool]);
+
+  // Shape creation functions
+  const createShape = (shapeType: string) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const centerX = canvas.width! / 2;
+    const centerY = canvas.height! / 2;
+
+    let shape;
+    switch (shapeType) {
+      case 'rectangle':
         shape = new Rect({
-          left: 100,
-          top: 100,
-          fill: 'transparent',
-          stroke: brushColor,
-          strokeWidth: 2,
+          left: centerX - 50,
+          top: centerY - 25,
           width: 100,
-          height: 60
+          height: 50,
+          fill: brushColor,
+          stroke: brushColor,
+          strokeWidth: 2,
         });
-      } else if (shapeType === 'circle') {
-        shape = new FabricCircle({
-          left: 100,
-          top: 100,
+        break;
+      case 'circle':
+        shape = new Circle({
+          left: centerX - 50,
+          top: centerY - 50,
+          radius: 50,
           fill: 'transparent',
           stroke: brushColor,
           strokeWidth: 2,
-          radius: 50
         });
-      } else if (shapeType === 'triangle') {
-        shape = new Polygon([
-          { x: 50, y: 0 },
-          { x: 0, y: 100 },
-          { x: 100, y: 100 }
-        ], {
-          left: 100,
-          top: 100,
+        break;
+      case 'triangle':
+        shape = new Triangle({
+          left: centerX - 50,
+          top: centerY - 50,
+          width: 100,
+          height: 100,
           fill: 'transparent',
           stroke: brushColor,
-          strokeWidth: 2
+          strokeWidth: 2,
         });
-      }
-      
-      if (shape) {
-        fabricCanvasRef.current.add(shape);
-        fabricCanvasRef.current.setActiveObject(shape);
-        handleCanvasChange();
-      }
-    } catch (error) {
-      console.error('Error adding shape:', error);
+        break;
+      case 'line':
+        shape = new Line([centerX - 50, centerY, centerX + 50, centerY], {
+          stroke: brushColor,
+          strokeWidth: brushSize,
+        });
+        break;
+    }
+
+    if (shape) {
+      canvas.add(shape);
+      canvas.setActiveObject(shape);
+      canvas.renderAll();
+      handleCanvasChange();
     }
   };
 
   const addText = () => {
-    if (!fabricCanvasRef.current) return;
-    
-    try {
-      const text = new FabricText('Click to edit', {
-        left: 100,
-        top: 100,
-        fontFamily: 'Arial',
-        fontSize: 20,
-        fill: brushColor
-      });
-      
-      fabricCanvasRef.current.add(text);
-      fabricCanvasRef.current.setActiveObject(text);
-      handleCanvasChange();
-    } catch (error) {
-      console.error('Error adding text:', error);
-    }
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const text = new Textbox('Double click to edit', {
+      left: canvas.width! / 2 - 75,
+      top: canvas.height! / 2 - 10,
+      width: 150,
+      fontSize: 20,
+      fill: brushColor,
+      fontFamily: 'Arial',
+    });
+
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    canvas.renderAll();
+    handleCanvasChange();
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !fabricCanvasRef.current) return;
+  const uploadImage = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const canvas = fabricCanvasRef.current;
+          if (!canvas) return;
 
-    // Check file size (2MB limit)
-    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
-    if (file.size > maxSize) {
-      toast({
-        title: "File too large",
-        description: "Please select a file smaller than 2MB",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      
-      if (file.type.startsWith('image/')) {
-        // Handle image files
-        FabricImage.fromURL(result).then((img) => {
-          if (fabricCanvasRef.current) {
-            // Scale image to fit reasonably on canvas
-            const maxWidth = 300;
-            const maxHeight = 300;
-            const scaleX = img.width! > maxWidth ? maxWidth / img.width! : 1;
-            const scaleY = img.height! > maxHeight ? maxHeight / img.height! : 1;
-            const scale = Math.min(scaleX, scaleY);
-            
-            img.set({
-              left: 50,
-              top: 50,
-              scaleX: scale,
-              scaleY: scale
+          FabricImage.fromURL(event.target?.result as string).then((fabricImage) => {
+            fabricImage.set({
+              left: 100,
+              top: 100,
+              scaleX: 0.5,
+              scaleY: 0.5,
             });
-            fabricCanvasRef.current.add(img);
-            fabricCanvasRef.current.setActiveObject(img);
+            canvas.add(fabricImage);
+            canvas.renderAll();
             handleCanvasChange();
-            toast({
-              title: "Image uploaded",
-              description: "Image has been added to the canvas",
-            });
-          }
-        }).catch((error) => {
-          console.error('Error loading image:', error);
-          toast({
-            title: "Error",
-            description: "Failed to load image",
-            variant: "destructive"
           });
-        });
-      } else if (file.type === 'application/pdf') {
-        // For PDF files, create a clickable placeholder
-        const text = new FabricText(`📄 PDF: ${file.name}\n(Click to view externally)`, {
-          left: 50,
-          top: 50,
-          fontFamily: 'Arial',
-          fontSize: 14,
-          fill: '#333333',
-          backgroundColor: '#f8f9fa',
-          padding: 15,
-          textAlign: 'center',
-          cornerStyle: 'circle',
-          borderColor: '#007bff',
-          borderDashArray: [5, 5]
-        });
-        
-        // Store the file data for potential future use
-        text.set('fileData', result);
-        text.set('fileName', file.name);
-        text.set('fileType', 'pdf');
-        
-        fabricCanvasRef.current.add(text);
-        fabricCanvasRef.current.setActiveObject(text);
-        handleCanvasChange();
-        
-        toast({
-          title: "PDF added",
-          description: "PDF placeholder added to canvas. Full PDF rendering requires additional libraries.",
-        });
+        };
+        reader.readAsDataURL(file);
       }
     };
-    
-    reader.readAsDataURL(file);
-    
-    // Reset the input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    input.click();
   };
 
-  const triggerFileUpload = () => {
-    fileInputRef.current?.click();
+  const uploadPDF = () => {
+    toast("PDF upload feature coming soon!");
+  };
+
+  const toggleGrid = () => {
+    setShowGrid(!showGrid);
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    if (!showGrid) {
+      // Add grid pattern
+      const gridSize = 20;
+      const objects = [];
+      
+      for (let i = 0; i < canvas.width! / gridSize; i++) {
+        objects.push(new Line([i * gridSize, 0, i * gridSize, canvas.height!], {
+          stroke: '#e0e0e0',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+        }));
+      }
+      
+      for (let i = 0; i < canvas.height! / gridSize; i++) {
+        objects.push(new Line([0, i * gridSize, canvas.width!, i * gridSize], {
+          stroke: '#e0e0e0',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+        }));
+      }
+      
+      objects.forEach(obj => canvas.add(obj));
+      objects.forEach(obj => canvas.sendObjectToBack(obj));
+    } else {
+      // Remove grid
+      const objects = canvas.getObjects().filter(obj => 
+        obj.stroke === '#e0e0e0' && !obj.selectable
+      );
+      objects.forEach(obj => canvas.remove(obj));
+    }
+    
+    canvas.renderAll();
+  };
+
+  const zoomIn = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    
+    const newZoom = Math.min(zoom * 1.2, 5);
+    canvas.setZoom(newZoom);
+    setZoom(newZoom);
+    canvas.renderAll();
+  };
+
+  const zoomOut = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    
+    const newZoom = Math.max(zoom / 1.2, 0.1);
+    canvas.setZoom(newZoom);
+    setZoom(newZoom);
+    canvas.renderAll();
+  };
+
+  const exportCanvas = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const dataURL = canvas.toDataURL({
+      format: 'png',
+      quality: 1,
+      multiplier: 2,
+    });
+
+    const link = document.createElement('a');
+    link.download = 'whiteboard.png';
+    link.href = dataURL;
+    link.click();
+    
+    toast("Canvas exported successfully!");
+  };
+
+  const clearCanvas = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    
+    canvas.clear();
+    canvas.backgroundColor = 'white';
+    canvas.renderAll();
+    handleCanvasChange();
+    toast("Canvas cleared!");
   };
 
   const undo = () => {
-    if (historyIndex > 0 && fabricCanvasRef.current) {
-      try {
-        const previousState = history[historyIndex - 1];
-        fabricCanvasRef.current.loadFromJSON(previousState).then(() => {
-          fabricCanvasRef.current?.renderAll();
-          setHistoryIndex(prev => prev - 1);
+    if (historyIndex > 0) {
+      setHistoryIndex(prev => prev - 1);
+      const canvas = fabricCanvasRef.current;
+      if (canvas && canvasHistory[historyIndex - 1]) {
+        canvas.loadFromJSON(canvasHistory[historyIndex - 1], () => {
+          canvas.renderAll();
         });
-      } catch (error) {
-        console.error('Error during undo:', error);
       }
     }
   };
 
   const redo = () => {
-    if (historyIndex < history.length - 1 && fabricCanvasRef.current) {
-      try {
-        const nextState = history[historyIndex + 1];
-        fabricCanvasRef.current.loadFromJSON(nextState).then(() => {
-          fabricCanvasRef.current?.renderAll();
-          setHistoryIndex(prev => prev + 1);
+    if (historyIndex < canvasHistory.length - 1) {
+      setHistoryIndex(prev => prev + 1);
+      const canvas = fabricCanvasRef.current;
+      if (canvas && canvasHistory[historyIndex + 1]) {
+        canvas.loadFromJSON(canvasHistory[historyIndex + 1], () => {
+          canvas.renderAll();
         });
-      } catch (error) {
-        console.error('Error during redo:', error);
       }
     }
   };
 
-  const clearCanvas = () => {
-    if (fabricCanvasRef.current) {
-      try {
-        fabricCanvasRef.current.clear();
-        fabricCanvasRef.current.backgroundColor = 'white';
-        fabricCanvasRef.current.renderAll();
-        handleCanvasChange();
-      } catch (error) {
-        console.error('Error clearing canvas:', error);
-      }
-    }
+  const handleToolSelect = (tool: typeof selectedTool) => {
+    setSelectedTool(tool);
+    onToolChange?.(tool);
   };
 
-  const exportCanvas = (format: 'png' | 'svg' | 'pdf') => {
-    if (!fabricCanvasRef.current) return;
-    
-    try {
-      if (format === 'png') {
-        const dataURL = fabricCanvasRef.current.toDataURL({
-          format: 'png',
-          quality: 1,
-          multiplier: 1
-        });
-        const link = document.createElement('a');
-        link.download = 'whiteboard.png';
-        link.href = dataURL;
-        link.click();
-      } else if (format === 'svg') {
-        const svg = fabricCanvasRef.current.toSVG();
-        const blob = new Blob([svg], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = 'whiteboard.svg';
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
-      
-      toast({
-        title: "Export successful",
-        description: `Canvas exported as ${format.toUpperCase()}`,
-      });
-    } catch (error) {
-      console.error('Error exporting canvas:', error);
-    }
+  const handleBrushSizeChange = (size: number) => {
+    setBrushSize(size);
+    onBrushSizeChange?.(size);
   };
 
-  const resetZoom = () => {
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.setZoom(1);
-      fabricCanvasRef.current.viewportTransform = [1, 0, 0, 1, 0, 0];
-      fabricCanvasRef.current.renderAll();
-      setZoom(1);
-    }
+  const handleBrushColorChange = (color: string) => {
+    setBrushColor(color);
+    onBrushColorChange?.(color);
   };
-
-  const colors = [
-    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', 
-    '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080', 
-    '#008000', '#FFC0CB', '#A52A2A', '#808080', '#87CEEB'
-  ];
-
-  const brushSizes = [1, 2, 3, 5, 8, 12, 16, 20, 25, 30];
-
-  // Expose functions to parent component via ref
-  useImperativeHandle(ref, () => ({
-    addText,
-    addShape,
-    triggerFileUpload,
-    exportCanvas,
-    setZoom,
-    zoom,
-    undo,
-    redo,
-    clearCanvas
-  }), [addText, addShape, triggerFileUpload, exportCanvas, zoom, undo, redo, clearCanvas]);
 
   return (
-    <div className={`h-full flex ${className || ''}`} ref={containerRef}>
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.pdf"
-        onChange={handleFileUpload}
-        className="hidden"
-      />
+    <div className={`relative w-full h-full bg-gray-50 ${className || ''}`}>
+      {/* Floating Toolbar */}
+      <Card className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm shadow-lg">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap gap-2">
+            {/* Drawing Tools */}
+            <div className="flex gap-1">
+              <Button
+                variant={selectedTool === 'select' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleToolSelect('select')}
+                title="Select"
+              >
+                <MousePointer className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedTool === 'pen' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleToolSelect('pen')}
+                title="Pen"
+              >
+                <Pen className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedTool === 'eraser' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleToolSelect('eraser')}
+                title="Eraser"
+              >
+                <Eraser className="h-4 w-4" />
+              </Button>
+            </div>
 
-      {/* Main Canvas Area */}
-      <div className="flex-1 bg-gray-50 overflow-hidden relative">
-        <canvas 
-          ref={canvasRef} 
-          className="border-none cursor-crosshair"
-          style={{ touchAction: 'none' }} // Important for pen tablet support
-        />
-        
-        {/* Zoom indicator */}
-        <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
-          {Math.round(zoom * 100)}%
-        </div>
-      </div>
+            {/* Shapes */}
+            <div className="flex gap-1 border-l pl-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => createShape('rectangle')}
+                title="Rectangle"
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => createShape('circle')}
+                title="Circle"
+              >
+                <CircleIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => createShape('triangle')}
+                title="Triangle"
+              >
+                <TriangleIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => createShape('line')}
+                title="Line"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+            </div>
 
-      {/* Right Side Collapsible Toolbar */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="fixed top-1/2 right-4 z-50 transform -translate-y-1/2 shadow-lg"
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="right" className="w-96 p-0">
-          <div className="h-full flex flex-col">
-            {/* Quick Tools - Top Section */}
-            <div className="p-4 border-b bg-gray-50">
-              <h3 className="font-semibold mb-3">Quick Tools</h3>
-              <div className="grid grid-cols-4 gap-2">
-                <Button
-                  variant={selectedTool === 'select' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setSelectedTool('select')}
-                  className="aspect-square"
-                >
-                  <MousePointer className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant={selectedTool === 'pen' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setSelectedTool('pen')}
-                  className="aspect-square"
-                >
-                  <Pen className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant={selectedTool === 'eraser' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setSelectedTool('eraser')}
-                  className="aspect-square"
-                >
-                  <Eraser className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={addText}
-                  className="aspect-square"
-                >
-                  <Type className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => addShape('rectangle')}
-                  className="aspect-square"
-                >
-                  <Square className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => addShape('circle')}
-                  className="aspect-square"
-                >
-                  <Circle className="h-4 w-4" />
-                </Button>
+            {/* Text & Media */}
+            <div className="flex gap-1 border-l pl-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addText}
+                title="Add Text"
+              >
+                <Type className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={uploadImage}
+                title="Upload Image"
+              >
+                <Image className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={uploadPDF}
+                title="Upload PDF"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => addShape('triangle')}
-                  className="aspect-square"
-                >
-                  <Triangle className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={triggerFileUpload}
-                  className="aspect-square"
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={undo}
-                  disabled={historyIndex <= 0}
-                  className="aspect-square"
-                >
-                  <Undo className="h-4 w-4" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={redo}
-                  disabled={historyIndex >= history.length - 1}
-                  className="aspect-square"
-                >
-                  <Redo className="h-4 w-4" />
-                </Button>
+            {/* Color & Brush */}
+            <div className="flex gap-1 border-l pl-2">
+              <Input
+                type="color"
+                value={brushColor}
+                onChange={(e) => handleBrushColorChange(e.target.value)}
+                className="w-8 h-8 p-0 border-none"
+                title="Color"
+              />
+              <div className="flex items-center gap-1">
+                <Label className="text-xs">Size:</Label>
+                <Input
+                  type="range"
+                  min="1"
+                  max="50"
+                  value={brushSize}
+                  onChange={(e) => handleBrushSizeChange(Number(e.target.value))}
+                  className="w-16"
+                />
+                <Badge variant="outline" className="text-xs">{brushSize}</Badge>
               </div>
             </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
-              {/* Drawing Tools Panel */}
-              <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-4">
-                    <span className="font-medium">Drawing Tools</span>
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="p-4 space-y-4">
-                  {/* Brush Size */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Brush Size: {brushSize}px</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {brushSizes.map((size) => (
-                        <Button
-                          key={size}
-                          variant={brushSize === size ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setBrushSize(size)}
-                          className="aspect-square"
-                        >
-                          {size}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Zoom Controls */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Zoom: {Math.round(zoom * 100)}%</label>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => setZoom(Math.max(0.1, zoom - 0.2))}>
-                        <ZoomOut className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={resetZoom}>
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setZoom(Math.min(5, zoom + 0.2))}>
-                        <ZoomIn className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Colors Panel */}
-              <Collapsible open={colorsOpen} onOpenChange={setColorsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-4">
-                    <span className="font-medium">Colors</span>
-                    <Palette className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="p-4">
-                  <div className="grid grid-cols-5 gap-2">
-                    {colors.map((color) => (
-                      <button
-                        key={color}
-                        className={`w-12 h-12 rounded border-2 ${
-                          brushColor === color ? 'border-gray-800 ring-2 ring-blue-500' : 'border-gray-300'
-                        } hover:scale-110 transition-transform`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => setBrushColor(color)}
-                      />
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-
-              {/* Export Panel */}
-              <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-4">
-                    <span className="font-medium">Export & Settings</span>
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="p-4 space-y-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => exportCanvas('png')}
-                    className="w-full"
-                  >
-                    Export as PNG
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => exportCanvas('svg')}
-                    className="w-full"
-                  >
-                    Export as SVG
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={clearCanvas}
-                    className="w-full"
-                  >
-                    Clear Canvas
-                  </Button>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </CardContent>
+      </Card>
+
+      {/* Secondary Toolbar */}
+      <Card className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-sm shadow-lg">
+        <CardContent className="p-3">
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" onClick={undo} title="Undo">
+              <Undo className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={redo} title="Redo">
+              <Redo className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={zoomIn} title="Zoom In">
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={zoomOut} title="Zoom Out">
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={showGrid ? 'default' : 'outline'} 
+              size="sm" 
+              onClick={toggleGrid} 
+              title="Toggle Grid"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportCanvas} title="Export">
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearCanvas} title="Clear">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Canvas Container */}
+      <div 
+        ref={containerRef} 
+        className="w-full h-full overflow-hidden cursor-crosshair"
+        style={{ touchAction: 'none' }} // Important for pen/touch support
+      >
+        <canvas 
+          ref={canvasRef}
+          className="border-none outline-none"
+          style={{ touchAction: 'none' }} // Prevent default touch behaviors
+        />
+      </div>
+
+      {/* Zoom indicator */}
+      <div className="absolute bottom-4 right-4 bg-black/20 text-white px-2 py-1 rounded text-sm">
+        {Math.round(zoom * 100)}%
+      </div>
     </div>
   );
 });

@@ -709,14 +709,32 @@ const Settings = () => {
                       <p className="font-medium">Analytics and Performance</p>
                       <p className="text-sm text-gray-600">Help us improve the platform with anonymous usage data</p>
                     </div>
-                    <Button variant="outline" size="sm">Manage</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => toast({
+                        title: "Analytics Settings",
+                        description: "Analytics preferences updated successfully.",
+                      })}
+                    >
+                      Allow
+                    </Button>
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">Marketing Communications</p>
                       <p className="text-sm text-gray-600">Receive updates about new features and offers</p>
                     </div>
-                    <Button variant="outline" size="sm">Manage</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => toast({
+                        title: "Marketing Settings",
+                        description: "Communication preferences updated successfully.",
+                      })}
+                    >
+                      Subscribe
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -725,11 +743,25 @@ const Settings = () => {
               <div className="space-y-4">
                 <h4 className="font-medium text-gray-900">Your Data Rights</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Button variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-4 flex flex-col items-start"
+                    onClick={() => toast({
+                      title: "Data Export",
+                      description: "Your data export will be sent to your email within 24 hours.",
+                    })}
+                  >
                     <span className="font-medium">Export My Data</span>
                     <span className="text-sm text-gray-600 mt-1">Download all your account data</span>
                   </Button>
-                  <Button variant="outline" className="h-auto p-4 flex flex-col items-start">
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-4 flex flex-col items-start"
+                    onClick={() => toast({
+                      title: "Data Correction Request",
+                      description: "Please contact support for data correction requests.",
+                    })}
+                  >
                     <span className="font-medium">Data Correction</span>
                     <span className="text-sm text-gray-600 mt-1">Request correction of your data</span>
                   </Button>

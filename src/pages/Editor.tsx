@@ -34,8 +34,10 @@ const Editor = () => {
   
   // Whiteboard state
   const [selectedTool, setSelectedTool] = useState('pen');
-  const [brushSize, setBrushSize] = useState(3);
+  const [brushSize, setBrushSize] = useState(5);
   const [brushColor, setBrushColor] = useState('#000000');
+
+  console.log('Editor state:', { selectedTool, brushSize, brushColor });
 
   useEffect(() => {
     if (!user) {
@@ -417,7 +419,7 @@ const Editor = () => {
             <InfiniteWhiteboard
               ref={whiteboardRef}
               canvasData={currentSlide?.canvas_data}
-              onChange={handleCanvasChange}
+              onCanvasChange={handleCanvasChange}
               className="h-full w-full"
               selectedTool={selectedTool}
               brushSize={brushSize}
