@@ -506,39 +506,6 @@ const InfiniteWhiteboard = forwardRef<any, InfiniteWhiteboardProps>(({
   return (
     <div className={`relative w-full h-full bg-gray-50 ${className || ''}`}>
 
-      {/* Secondary Toolbar */}
-      <Card className="absolute top-4 right-4 z-10 bg-white/95 backdrop-blur-sm shadow-lg">
-        <CardContent className="p-3">
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" onClick={undo} title="Undo">
-              <Undo className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={redo} title="Redo">
-              <Redo className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={zoomIn} title="Zoom In">
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={zoomOut} title="Zoom Out">
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant={showGrid ? 'default' : 'outline'} 
-              size="sm" 
-              onClick={toggleGrid} 
-              title="Toggle Grid"
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={exportCanvas} title="Export">
-              <Download className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={clearCanvas} title="Clear">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Canvas Container */}
       <div 
