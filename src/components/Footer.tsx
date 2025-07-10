@@ -19,22 +19,7 @@ const Footer = () => {
           </p>
           
           <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <a 
-              href="https://spslabs.vercel.app" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
-            >
-              Contact
-            </a>
-            <a 
-              href="https://status.spslabs.vercel.app" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
-            >
-              Status
-            </a>
+            <span className="text-gray-600">All rights reserved.</span>
           </div>
         </div>
       </div>

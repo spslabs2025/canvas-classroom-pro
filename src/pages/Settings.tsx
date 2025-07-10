@@ -771,7 +771,7 @@ const Settings = () => {
               {/* Legal Documents */}
               <div className="space-y-4">
                 <h4 className="font-medium text-gray-900">Legal Information</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <Button 
                     variant="outline" 
                     className="h-auto p-3 flex flex-col items-center text-center"
@@ -799,6 +799,20 @@ const Settings = () => {
                     onClick={() => navigate('/eula')}
                   >
                     <span className="font-medium text-sm">EULA</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-3 flex flex-col items-center text-center"
+                    onClick={() => window.open('https://spslabs.vercel.app', '_blank')}
+                  >
+                    <span className="font-medium text-sm">Contact</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-3 flex flex-col items-center text-center"
+                    onClick={() => window.open('https://status.spslabs.vercel.app', '_blank')}
+                  >
+                    <span className="font-medium text-sm">Status</span>
                   </Button>
                 </div>
               </div>
