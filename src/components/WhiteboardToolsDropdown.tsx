@@ -101,9 +101,15 @@ const WhiteboardToolsDropdown = ({
           <MousePointer className="h-4 w-4 mr-2" />
           Select
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleToolClick('pen')} className="cursor-pointer">
+        <DropdownMenuItem 
+          onClick={() => handleToolClick('pen')} 
+          className={`cursor-pointer ${currentTool === 'pen' ? 'bg-blue-50 text-blue-700 font-medium' : ''}`}
+        >
           <Pen className="h-4 w-4 mr-2" />
-          Pen
+          <div className="flex flex-col">
+            <span>Pen</span>
+            <span className="text-xs text-gray-500">Draw and annotate</span>
+          </div>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleToolClick('eraser')} className="cursor-pointer">
           <Eraser className="h-4 w-4 mr-2" />
