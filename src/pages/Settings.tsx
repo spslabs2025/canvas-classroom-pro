@@ -768,6 +768,41 @@ const Settings = () => {
                 </div>
               </div>
 
+              {/* Legal Documents */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900">Legal Information</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-3 flex flex-col items-center text-center"
+                    onClick={() => navigate('/about')}
+                  >
+                    <span className="font-medium text-sm">About Us</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-3 flex flex-col items-center text-center"
+                    onClick={() => navigate('/privacy-policy')}
+                  >
+                    <span className="font-medium text-sm">Privacy Policy</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-3 flex flex-col items-center text-center"
+                    onClick={() => navigate('/terms-of-service')}
+                  >
+                    <span className="font-medium text-sm">Terms of Service</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto p-3 flex flex-col items-center text-center"
+                    onClick={() => navigate('/eula')}
+                  >
+                    <span className="font-medium text-sm">EULA</span>
+                  </Button>
+                </div>
+              </div>
+
               {/* Security Disclosure */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-start space-x-3">

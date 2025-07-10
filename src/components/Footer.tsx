@@ -19,30 +19,22 @@ const Footer = () => {
           </p>
           
           <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Link 
-              to="/about" 
+            <a 
+              href="https://spslabs.vercel.app" 
+              target="_blank" 
+              rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
             >
-              About Us
-            </Link>
-            <Link 
-              to="/privacy-policy" 
+              Contact
+            </a>
+            <a 
+              href="https://status.spslabs.vercel.app" 
+              target="_blank" 
+              rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
             >
-              Privacy Policy
-            </Link>
-            <Link 
-              to="/terms-of-service" 
-              className="text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
-            >
-              Terms of Service
-            </Link>
-            <Link 
-              to="/eula" 
-              className="text-blue-600 hover:text-blue-700 font-medium transition-colors hover:underline"
-            >
-              EULA
-            </Link>
+              Status
+            </a>
           </div>
         </div>
       </div>
