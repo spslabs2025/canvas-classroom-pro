@@ -52,6 +52,50 @@ export type Database = {
           },
         ]
       }
+      drawing_strokes: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          size: number
+          slide_id: string
+          stroke_data: Json
+          tool_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          size?: number
+          slide_id: string
+          stroke_data: Json
+          tool_type?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          size?: number
+          slide_id?: string
+          stroke_data?: Json
+          tool_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drawing_strokes_slide_id_fkey"
+            columns: ["slide_id"]
+            isOneToOne: false
+            referencedRelation: "slides"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           created_at: string | null

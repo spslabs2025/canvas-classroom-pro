@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft, Save, Settings, Eye, EyeOff, PenTool } from 'lucide-react';
+import { ArrowLeft, Save, Settings, Eye, EyeOff, PenTool, Wifi, WifiOff } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { useDrawingService } from '@/hooks/useDrawingService';
 import InfiniteWhiteboard from '@/components/InfiniteWhiteboard';
 import DraggableWebcamPreview from '@/components/DraggableWebcamPreview';
 import FloatingRecordingSidebar from '@/components/FloatingRecordingSidebar';
@@ -36,8 +37,11 @@ const Editor = () => {
   const [selectedTool, setSelectedTool] = useState('pen');
   const [brushSize, setBrushSize] = useState(5);
   const [brushColor, setBrushColor] = useState('#000000');
+  
+  // Drawing service for pen tool backend support
+  const drawingService = useDrawingService(currentSlide?.id || null, user?.id || null);
 
-  console.log('Editor state:', { selectedTool, brushSize, brushColor });
+  console.log('Editor state:', { selectedTool, brushSize, brushColor, syncStatus: drawingService.isSyncing });
 
   useEffect(() => {
     if (!user) {
@@ -49,6 +53,13 @@ const Editor = () => {
       initializeEditor();
     }
   }, [lessonId, user]);
+
+  // Cleanup drawing service on unmount
+  useEffect(() => {
+    return () => {
+      drawingService.cleanup();
+    };
+  }, [drawingService.cleanup]);
 
   const initializeEditor = async () => {
     try {
@@ -127,6 +138,20 @@ const Editor = () => {
 
   const handleCanvasChange = async (newCanvasData: any) => {
     setCanvasData(newCanvasData);
+    
+    // Handle pen tool strokes specifically
+    if (selectedTool === 'pen' && newCanvasData?.objects) {
+      const latestObject = newCanvasData.objects[newCanvasData.objects.length - 1];
+      if (latestObject && latestObject.type === 'path') {
+        // Queue the stroke for backend saving
+        drawingService.queueStroke(
+          latestObject,
+          'pen',
+          brushColor,
+          brushSize
+        );
+      }
+    }
     
     if (autoSave && currentSlide) {
       try {
@@ -212,11 +237,22 @@ const Editor = () => {
     }
   };
 
-  const handleSlideSelect = (index: number) => {
+  const handleSlideSelect = async (index: number) => {
+    // Force save any pending strokes before switching slides
+    drawingService.forceSave();
+    
     setCurrentSlideIndex(index);
     if (slides[index]) {
       setCurrentSlide(slides[index]);
       setCanvasData(slides[index].canvas_data || {});
+      
+      // Load strokes for the new slide
+      try {
+        const strokes = await drawingService.loadStrokes(slides[index].id);
+        console.log(`Loaded ${strokes.length} strokes for slide ${index}`);
+      } catch (error) {
+        console.error('Error loading strokes for slide:', error);
+      }
     }
   };
 
@@ -304,16 +340,26 @@ const Editor = () => {
       });
     } else {
       setSelectedTool(tool);
+      
+      // Enhanced feedback for pen tool
+      if (tool === 'pen') {
+        toast({
+          title: "Pen Tool Active",
+          description: `Draw with ${brushColor} color, ${brushSize}px thickness. Drawings auto-save to backend.`,
+        });
+      }
     }
     
     if (options?.color) {
       setBrushColor(options.color);
     }
     
-    toast({
-      title: "Tool Selected",
-      description: `${tool.charAt(0).toUpperCase() + tool.slice(1)} tool is now active`,
-    });
+    if (tool !== 'pen') {
+      toast({
+        title: "Tool Selected",
+        description: `${tool.charAt(0).toUpperCase() + tool.slice(1)} tool is now active`,
+      });
+    }
   };
 
   const handleBrushSizeChange = (size: number) => {
@@ -403,6 +449,26 @@ const Editor = () => {
               <Save className="h-4 w-4 mr-2" />
               Save
             </Button>
+            
+            {/* Sync Status Indicator */}
+            <div className="flex items-center space-x-1 text-xs text-gray-500">
+              {drawingService.isSyncing ? (
+                <>
+                  <WifiOff className="h-3 w-3 animate-pulse" />
+                  <span>Syncing...</span>
+                </>
+              ) : drawingService.pendingCount > 0 ? (
+                <>
+                  <Wifi className="h-3 w-3 text-orange-500" />
+                  <span>{drawingService.pendingCount} pending</span>
+                </>
+              ) : (
+                <>
+                  <Wifi className="h-3 w-3 text-green-500" />
+                  <span>Synced</span>
+                </>
+              )}
+            </div>
           </div>
         </header>
 
